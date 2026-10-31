@@ -293,8 +293,17 @@
 
         /* =====================================================
            MODAL
-           Se coloca directamente en BODY para evitar
-           problemas de superposición con el fondo oscuro.
+           Estructura corregida para Bootstrap:
+
+           modal-content
+             └── form.plan-modal-form
+                   ├── modal-header
+                   ├── modal-body
+                   └── modal-footer
+
+           El formulario ocupa el espacio disponible.
+           El cuerpo tiene desplazamiento independiente
+           y el pie permanece visible.
         ===================================================== */
 
         getModalHTML() {
@@ -310,36 +319,54 @@
 
                         <div class="modal-content">
 
-                            <div class="modal-header">
+                            <form id="planForm"
+                                  class="plan-modal-form"
+                                  style="
+                                      display: flex;
+                                      flex-direction: column;
+                                      flex: 1 1 auto;
+                                      min-height: 0;
+                                      overflow: hidden;
+                                  ">
 
-                                <div>
-                                    <h5 class="modal-title fw-bold"
-                                        id="planModalTitle">
-                                        Crear nuevo plan
-                                    </h5>
+                                <!-- CABECERA -->
 
-                                    <p class="text-secondary small mb-0">
-                                        Completa la información de tu experiencia.
-                                    </p>
+                                <div class="modal-header">
+
+                                    <div>
+                                        <h5 class="modal-title fw-bold"
+                                            id="planModalTitle">
+                                            Crear nuevo plan
+                                        </h5>
+
+                                        <p class="text-secondary small mb-0">
+                                            Completa la información de tu experiencia.
+                                        </p>
+                                    </div>
+
+                                    <button type="button"
+                                            class="btn-close"
+                                            data-bs-dismiss="modal"
+                                            aria-label="Cerrar">
+                                    </button>
+
                                 </div>
 
-                                <button type="button"
-                                        class="btn-close"
-                                        data-bs-dismiss="modal"
-                                        aria-label="Cerrar">
-                                </button>
+                                <!-- CONTENIDO DESPLAZABLE -->
 
-                            </div>
-
-                            <form id="planForm">
-
-                                <div class="modal-body">
+                                <div class="modal-body"
+                                     style="
+                                         flex: 1 1 auto;
+                                         min-height: 0;
+                                         overflow-y: auto;
+                                     ">
 
                                     <div class="row g-3">
 
                                         <div class="col-12">
 
-                                            <label class="form-label">
+                                            <label for="planName"
+                                                   class="form-label">
                                                 Nombre del plan *
                                             </label>
 
@@ -354,7 +381,8 @@
 
                                         <div class="col-md-6">
 
-                                            <label class="form-label">
+                                            <label for="planCategory"
+                                                   class="form-label">
                                                 Categoría *
                                             </label>
 
@@ -378,7 +406,8 @@
 
                                         <div class="col-md-6">
 
-                                            <label class="form-label">
+                                            <label for="planStatus"
+                                                   class="form-label">
                                                 Estado
                                             </label>
 
@@ -397,7 +426,8 @@
 
                                         <div class="col-md-6">
 
-                                            <label class="form-label">
+                                            <label for="planDate"
+                                                   class="form-label">
                                                 Fecha
                                             </label>
 
@@ -409,7 +439,8 @@
 
                                         <div class="col-md-6">
 
-                                            <label class="form-label">
+                                            <label for="planTime"
+                                                   class="form-label">
                                                 Hora
                                             </label>
 
@@ -421,7 +452,8 @@
 
                                         <div class="col-md-6">
 
-                                            <label class="form-label">
+                                            <label for="planLocation"
+                                                   class="form-label">
                                                 Ubicación
                                             </label>
 
@@ -435,7 +467,8 @@
 
                                         <div class="col-md-6">
 
-                                            <label class="form-label">
+                                            <label for="planMapsUrl"
+                                                   class="form-label">
                                                 Enlace de ubicación
                                             </label>
 
@@ -448,7 +481,8 @@
 
                                         <div class="col-md-6">
 
-                                            <label class="form-label">
+                                            <label for="planBudget"
+                                                   class="form-label">
                                                 Presupuesto estimado (€)
                                             </label>
 
@@ -463,7 +497,8 @@
 
                                         <div class="col-md-6">
 
-                                            <label class="form-label">
+                                            <label for="planDuration"
+                                                   class="form-label">
                                                 Duración aproximada
                                             </label>
 
@@ -477,7 +512,8 @@
 
                                         <div class="col-12">
 
-                                            <label class="form-label">
+                                            <label for="planParticipants"
+                                                   class="form-label">
                                                 Participantes
                                             </label>
 
@@ -494,7 +530,8 @@
 
                                         <div class="col-12">
 
-                                            <label class="form-label">
+                                            <label for="planDescription"
+                                                   class="form-label">
                                                 Descripción
                                             </label>
 
@@ -508,7 +545,8 @@
 
                                         <div class="col-12">
 
-                                            <label class="form-label">
+                                            <label for="planNotes"
+                                                   class="form-label">
                                                 Notas adicionales
                                             </label>
 
@@ -519,9 +557,12 @@
 
                                         </div>
 
+                                        <!-- IMAGEN DE PORTADA -->
+
                                         <div class="col-12">
 
-                                            <label class="form-label">
+                                            <label for="planImage"
+                                                   class="form-label">
                                                 Imagen de portada
                                             </label>
 
@@ -545,7 +586,10 @@
 
                                 </div>
 
-                                <div class="modal-footer">
+                                <!-- PIE FIJO -->
+
+                                <div class="modal-footer"
+                                     style="flex-shrink: 0;">
 
                                     <button type="button"
                                             class="btn btn-outline-secondary"
@@ -575,8 +619,8 @@
         },
 
         createModal() {
-            // Eliminar una posible instancia anterior
-            const previousModal = document.getElementById("planModal");
+            const previousModal =
+                document.getElementById("planModal");
 
             if (previousModal) {
                 const previousInstance =
@@ -586,7 +630,6 @@
                 previousModal.remove();
             }
 
-            // Crear el modal fuera de cualquier contenedor de la aplicación
             document.body.insertAdjacentHTML(
                 "beforeend",
                 this.getModalHTML()
@@ -606,7 +649,6 @@
 
         bindEvents() {
 
-            // Eventos de la interfaz principal
             this.container.addEventListener("click", async event => {
 
                 const createButton =
@@ -647,6 +689,7 @@
             });
 
             // Buscador
+
             this.container.addEventListener("input", event => {
 
                 if (event.target.id === "plansSearch") {
@@ -658,7 +701,8 @@
 
             });
 
-            // Selectores de filtros
+            // Filtros
+
             this.container.addEventListener("change", event => {
 
                 if (event.target.id === "plansCategoryFilter") {
@@ -677,8 +721,7 @@
 
             });
 
-            // Eventos del modal: se escuchan en el propio modal,
-            // ya que ahora está fuera de plansModuleContainer.
+            // Envío del formulario
 
             this.modal.addEventListener("submit", async event => {
 
@@ -688,6 +731,8 @@
                 }
 
             });
+
+            // Selección de imagen
 
             this.modal.addEventListener("change", event => {
 
@@ -699,6 +744,8 @@
 
             });
 
+            // Eliminar imagen seleccionada
+
             this.modal.addEventListener("click", event => {
 
                 if (event.target.closest("#removePlanImage")) {
@@ -707,13 +754,15 @@
 
             });
 
-            // Al cerrar el modal, limpiar su estado temporal
+            // Limpieza al cerrar el modal
+
             this.modal.addEventListener("hidden.bs.modal", () => {
                 this.selectedImage = null;
                 this.revokePreviewURL();
             });
 
             // Actualizar al entrar en Mis planes
+
             document.addEventListener("planea:viewChanged", event => {
 
                 if (event.detail?.view === "plans") {
@@ -723,6 +772,7 @@
             });
 
             // Actualizar cuando cambien los datos
+
             document.addEventListener("planea:dataChanged", () => {
                 this.renderPlans();
             });
@@ -1173,6 +1223,7 @@
             try {
 
                 // Guardar una nueva imagen si se ha seleccionado
+
                 if (this.selectedImage) {
 
                     const validation =
@@ -1267,8 +1318,8 @@
 
                 }
 
-                // Si se ha eliminado o sustituido una imagen,
-                // borrar la antigua cuando ya no se utiliza.
+                // Eliminar la imagen antigua si ha sido sustituida
+
                 if (
                     oldImageId &&
                     oldImageId !== imageId
@@ -1648,6 +1699,7 @@
     };
 
     // Exponer módulo
+
     window.PLANEA_PLANS = MODULE;
 
 })();

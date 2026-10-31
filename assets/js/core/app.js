@@ -1,3 +1,4 @@
+
 /* =========================================================
    PLANEA - APLICACIÓN PRINCIPAL
    Inicialización y comunicación entre módulos.
@@ -9,17 +10,21 @@
     const APP = {
 
         initialized: false,
+        initializing: false,
 
         /* =====================================================
            INICIALIZACIÓN
         ===================================================== */
 
         async init() {
-            if (this.initialized) return;
+            if (this.initialized || this.initializing) return;
+
+            this.initializing = true;
 
             console.log("PLANEA: iniciando aplicación...");
 
             try {
+
                 // 1. Comprobar dependencias principales
                 const dependencies = [
                     "PLANEA_STORAGE",
@@ -48,13 +53,17 @@
                 // 4. Inicializar Dashboard
                 await window.PLANEA_DASHBOARD.init();
 
-                // 5. Cargar el módulo Mis planes
+                // 5. Cargar módulo Mis planes
                 await this.loadPlansModule();
 
-                // 6. Inicializar Mis planes
-                if (window.PLANEA_PLANS) {
-                    await window.PLANEA_PLANS.init();
+                // 6. Inicializar módulo Mis planes
+                if (!window.PLANEA_PLANS) {
+                    throw new Error(
+                        "El módulo Mis planes no está disponible."
+                    );
                 }
+
+                await window.PLANEA_PLANS.init();
 
                 // 7. Mostrar Dashboard inicialmente
                 const profile = window.PLANEA_STORAGE.getProfile();
@@ -65,9 +74,12 @@
 
                 this.initialized = true;
 
-                console.log("PLANEA: aplicación iniciada correctamente.");
+                console.log(
+                    "PLANEA: aplicación iniciada correctamente."
+                );
 
             } catch (error) {
+
                 console.error(
                     "PLANEA: error durante la inicialización.",
                     error
@@ -77,6 +89,9 @@
                     "Ha ocurrido un error al iniciar PLANEA.",
                     "danger"
                 );
+
+            } finally {
+                this.initializing = false;
             }
         },
 
@@ -85,63 +100,66 @@
         ===================================================== */
 
         loadPlansModule() {
+
             return new Promise((resolve, reject) => {
 
-                // Si ya está cargado, no volver a cargarlo
+                // Si el módulo ya está registrado, no cargarlo otra vez
                 if (window.PLANEA_PLANS) {
                     resolve();
                     return;
                 }
 
-                // Comprobar si ya existe una etiqueta script
+                // Buscar una etiqueta anterior del módulo
                 const existingScript = document.querySelector(
                     'script[data-planea-module="plans"]'
                 );
 
+                // Si existe pero no ha registrado el módulo,
+                // eliminarla para realizar una carga limpia.
                 if (existingScript) {
-                    existingScript.addEventListener("load", resolve, {
-                        once: true
-                    });
-
-                    existingScript.addEventListener("error", () => {
-                        reject(
-                            new Error("No se pudo cargar el módulo Mis planes.")
-                        );
-                    }, { once: true });
-
-                    return;
+                    existingScript.remove();
                 }
 
-                // Crear etiqueta script
+                // Crear una nueva etiqueta script
                 const script = document.createElement("script");
 
-                script.src = "assets/js/modules/plans.js";
+                script.src = new URL(
+                    "assets/js/modules/plans.js",
+                    document.baseURI
+                ).href;
+
                 script.dataset.planeaModule = "plans";
 
                 script.onload = () => {
+
                     if (!window.PLANEA_PLANS) {
                         reject(
                             new Error(
-                                "El archivo plans.js se ha cargado, pero no ha registrado el módulo."
+                                "plans.js se ha cargado, pero no ha registrado PLANEA_PLANS."
                             )
                         );
                         return;
                     }
 
-                    console.log("PLANEA: módulo Mis planes cargado.");
+                    console.log(
+                        "PLANEA: módulo Mis planes cargado correctamente."
+                    );
 
                     resolve();
                 };
 
                 script.onerror = () => {
+
                     reject(
                         new Error(
-                            "No se ha podido cargar assets/js/modules/plans.js"
+                            "No se ha podido cargar assets/js/modules/plans.js. Comprueba la ruta del archivo."
                         )
                     );
+
                 };
 
                 document.body.appendChild(script);
+
             });
         },
 
@@ -161,12 +179,12 @@
 
             toastMessage.textContent = message;
 
-            // Permitir recibir tanto un tipo como una duración
             const delay = typeof typeOrDelay === "number"
                 ? typeOrDelay
                 : 3000;
 
             if (window.bootstrap?.Toast) {
+
                 const toast = window.bootstrap.Toast.getOrCreateInstance(
                     toastElement,
                     {
@@ -176,8 +194,11 @@
                 );
 
                 toast.show();
+
             } else {
+
                 console.log(`[PLANEA] ${message}`);
+
             }
         },
 
@@ -207,14 +228,30 @@
        EVENTOS GLOBALES
     ===================================================== */
 
-    document.addEventListener("DOMContentLoaded", () => {
+    // Inicializar cuando el HTML esté preparado.
+    // También contempla que DOMContentLoaded ya haya ocurrido.
+    const startApplication = () => {
         APP.init();
-    });
+    };
+
+    if (document.readyState === "loading") {
+        document.addEventListener(
+            "DOMContentLoaded",
+            startApplication,
+            { once: true }
+        );
+    } else {
+        startApplication();
+    }
 
     // Evitar navegación accidental de enlaces vacíos
     document.addEventListener("click", event => {
 
-        const emptyLink = event.target.closest('a[href="#"]');
+        const target = event.target;
+
+        if (!(target instanceof Element)) return;
+
+        const emptyLink = target.closest('a[href="#"]');
 
         if (emptyLink) {
             event.preventDefault();
@@ -226,13 +263,17 @@
     document.addEventListener("visibilitychange", () => {
 
         if (document.visibilityState === "hidden") {
+
             if (window.PLANEA_STORAGE) {
+
                 const data = window.PLANEA_STORAGE.getData();
 
                 if (data) {
                     window.PLANEA_STORAGE.saveData(data);
                 }
+
             }
+
         }
 
     });
