@@ -1,0 +1,991 @@
+
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <meta name="theme-color" content="#111714">
+    <meta name="description" content="PLANEA. Organiza tus planes, comparte experiencias y disfruta cada momento.">
+
+    <title>Inicio | PLANEA</title>
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="assets/images/logo.svg">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+    <!-- Estilos PLANEA -->
+    <link rel="stylesheet" href="assets/css/main.css">
+    <link rel="stylesheet" href="assets/css/components.css">
+    <link rel="stylesheet" href="assets/css/responsive.css">
+</head>
+
+<body>
+
+    <!-- =====================================================
+         BIENVENIDA
+    ====================================================== -->
+
+    <section id="onboardingScreen" class="onboarding-screen">
+
+        <div class="onboarding-content">
+
+            <div class="onboarding-logo">
+                <img src="assets/images/logo.svg" alt="PLANEA" class="onboarding-logo-image">
+            </div>
+
+            <p class="onboarding-tagline">
+                Organiza. Comparte. Disfruta.
+            </p>
+
+            <div class="onboarding-heading">
+                <h1>Bienvenido a <span>PLANEA</span></h1>
+                <p>
+                    Tu espacio para organizar planes, descubrir experiencias
+                    y disfrutar de cada momento.
+                </p>
+            </div>
+
+            <form id="welcomeForm" class="onboarding-form">
+
+                <div class="welcome-avatar-container">
+
+                    <div class="avatar avatar-xl" id="welcomeAvatar">
+                        <i class="bi bi-person-fill"></i>
+                    </div>
+
+                    <label for="welcomePhoto" class="welcome-photo-button">
+                        <i class="bi bi-camera-fill"></i>
+                    </label>
+
+                    <input
+                        type="file"
+                        id="welcomePhoto"
+                        accept="image/jpeg,image/png,image/webp,image/gif"
+                        hidden
+                    >
+
+                </div>
+
+                <p class="welcome-photo-label">
+                    Añade una fotografía si quieres
+                </p>
+
+                <div class="form-group">
+                    <label for="welcomeName">¿Cómo te llamas?</label>
+
+                    <input
+                        type="text"
+                        id="welcomeName"
+                        class="form-control"
+                        placeholder="Escribe tu nombre..."
+                        maxlength="40"
+                        required
+                    >
+                </div>
+
+                <button type="submit" class="btn btn-primary-green w-100">
+                    Comenzar
+                    <i class="bi bi-arrow-right ms-2"></i>
+                </button>
+
+            </form>
+
+            <div class="onboarding-footer">
+                PLANEA · Tu próxima gran experiencia empieza aquí.
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <!-- =====================================================
+         APLICACIÓN
+    ====================================================== -->
+
+    <div id="app" class="app-shell d-none">
+
+        <!-- FONDO DEL MENÚ MÓVIL -->
+        <div class="sidebar-overlay"></div>
+
+
+        <!-- =================================================
+             SIDEBAR DESKTOP
+        ================================================== -->
+
+        <aside class="sidebar" id="sidebar">
+
+            <div class="sidebar-header">
+
+                <a href="#" class="sidebar-brand" data-view="dashboard">
+                    <img src="assets/images/logo.svg" alt="PLANEA" class="sidebar-logo">
+                    <span class="sidebar-brand-text">PLANEA</span>
+                </a>
+
+                <button
+                    type="button"
+                    class="sidebar-collapse-button"
+                    data-sidebar-toggle
+                    aria-label="Contraer menú"
+                    title="Contraer menú"
+                >
+                    <i class="bi bi-layout-sidebar"></i>
+                </button>
+
+            </div>
+
+
+            <div class="sidebar-user-card">
+
+                <div class="avatar avatar-sm" id="sidebarAvatar">
+                    <i class="bi bi-person-fill"></i>
+                </div>
+
+                <div class="sidebar-profile-info">
+                    <span id="sidebarUserName">Mi perfil</span>
+                    <small>Tu espacio personal</small>
+                </div>
+
+                <button
+                    type="button"
+                    class="sidebar-user-edit"
+                    data-bs-toggle="modal"
+                    data-bs-target="#profileModal"
+                    aria-label="Editar perfil"
+                >
+                    <i class="bi bi-pencil"></i>
+                </button>
+
+            </div>
+
+
+            <nav class="sidebar-navigation">
+
+                <div class="sidebar-section-label">PRINCIPAL</div>
+
+                <a href="#" class="sidebar-link" data-view="dashboard">
+                    <i class="bi bi-grid-1x2"></i>
+                    <span>Inicio</span>
+                </a>
+
+                <a href="#" class="sidebar-link" data-view="plans">
+                    <i class="bi bi-calendar2-check"></i>
+                    <span>Mis planes</span>
+                </a>
+
+                <a href="#" class="sidebar-link" data-view="calendar">
+                    <i class="bi bi-calendar3"></i>
+                    <span>Calendario</span>
+                </a>
+
+
+                <div class="sidebar-section-label">DESCUBRIR</div>
+
+                <a href="#" class="sidebar-link" data-view="generator">
+                    <i class="bi bi-shuffle"></i>
+                    <span>Generador aleatorio</span>
+                </a>
+
+                <a href="#" class="sidebar-link" data-view="favorites">
+                    <i class="bi bi-heart"></i>
+                    <span>Ideas favoritas</span>
+                </a>
+
+
+                <div class="sidebar-section-label">ORGANIZACIÓN</div>
+
+                <a href="#" class="sidebar-link" data-view="expenses">
+                    <i class="bi bi-wallet2"></i>
+                    <span>Presupuestos y gastos</span>
+                </a>
+
+                <a href="#" class="sidebar-link" data-view="history">
+                    <i class="bi bi-clock-history"></i>
+                    <span>Historial</span>
+                </a>
+
+                <a href="#" class="sidebar-link" data-view="settings">
+                    <i class="bi bi-gear"></i>
+                    <span>Configuración</span>
+                </a>
+
+            </nav>
+
+
+            <div class="sidebar-bottom">
+
+                <div class="sidebar-bottom-brand">
+                    <span>PLANEA</span>
+                    <small>Organiza. Comparte. Disfruta.</small>
+                </div>
+
+            </div>
+
+        </aside>
+
+
+        <!-- =================================================
+             CONTENIDO PRINCIPAL
+        ================================================== -->
+
+        <main class="main-area">
+
+
+            <!-- TOPBAR -->
+
+            <header class="topbar">
+
+                <div class="topbar-left">
+
+                    <button
+                        type="button"
+                        class="mobile-menu-button"
+                        aria-label="Abrir menú"
+                    >
+                        <i class="bi bi-list"></i>
+                    </button>
+
+                    <div class="topbar-heading">
+                        <span class="topbar-label">TU ESPACIO PERSONAL</span>
+                        <h1 data-page-title>Inicio</h1>
+                    </div>
+
+                </div>
+
+
+                <div class="topbar-right">
+
+                    <div class="topbar-date" id="currentDate">
+                        <i class="bi bi-calendar3"></i>
+                        <span></span>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="topbar-profile-button"
+                        data-bs-toggle="modal"
+                        data-bs-target="#profileModal"
+                        aria-label="Editar perfil"
+                    >
+                        <div class="avatar avatar-sm" id="topbarAvatar">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+                    </button>
+
+                </div>
+
+            </header>
+
+
+            <!-- =================================================
+                 CONTENIDO DE LAS PÁGINAS
+            ================================================== -->
+
+            <div class="page-content">
+
+
+                <!-- =============================================
+                     INICIO
+                ============================================== -->
+
+                <section data-page="dashboard">
+
+                    <div class="dashboard-welcome">
+
+                        <div class="dashboard-welcome-content">
+
+                            <span class="dashboard-eyebrow">
+                                TU PRÓXIMA AVENTURA EMPIEZA AQUÍ
+                            </span>
+
+                            <h2>
+                                ¡Hola, <span id="welcomeUserName">amigo</span>!
+                            </h2>
+
+                            <p>
+                                Organiza tus planes, descubre nuevas ideas
+                                y disfruta de cada experiencia.
+                            </p>
+
+                            <a href="#" data-view="plans" class="dashboard-create-button">
+                                <i class="bi bi-plus-lg"></i>
+                                Crear un plan
+                            </a>
+
+                        </div>
+
+                        <div class="dashboard-welcome-decoration">
+                            <i class="bi bi-stars"></i>
+                        </div>
+
+                    </div>
+
+
+                    <!-- ESTADÍSTICAS -->
+
+                    <div class="dashboard-stats">
+
+                        <article class="stat-card">
+                            <div class="stat-icon stat-icon-pending">
+                                <i class="bi bi-hourglass-split"></i>
+                            </div>
+
+                            <div>
+                                <span>Planes pendientes</span>
+                                <h3 id="pendingPlansCount">0</h3>
+                            </div>
+                        </article>
+
+
+                        <article class="stat-card">
+                            <div class="stat-icon stat-icon-confirmed">
+                                <i class="bi bi-check-circle"></i>
+                            </div>
+
+                            <div>
+                                <span>Confirmados</span>
+                                <h3 id="confirmedPlansCount">0</h3>
+                            </div>
+                        </article>
+
+
+                        <article class="stat-card">
+                            <div class="stat-icon stat-icon-completed">
+                                <i class="bi bi-trophy"></i>
+                            </div>
+
+                            <div>
+                                <span>Realizados</span>
+                                <h3 id="completedPlansCount">0</h3>
+                            </div>
+                        </article>
+
+
+                        <article class="stat-card">
+                            <div class="stat-icon stat-icon-expenses">
+                                <i class="bi bi-wallet2"></i>
+                            </div>
+
+                            <div>
+                                <span>Gasto mensual</span>
+                                <h3 id="monthlyExpenses">0,00 €</h3>
+                            </div>
+                        </article>
+
+                    </div>
+
+
+                    <!-- PRÓXIMO PLAN Y ACCESOS -->
+
+                    <div class="dashboard-main-grid">
+
+                        <section class="dashboard-panel next-plan-panel">
+
+                            <div class="panel-header">
+                                <div>
+                                    <span class="panel-eyebrow">NO LO PIERDAS DE VISTA</span>
+                                    <h3>Tu próximo plan</h3>
+                                </div>
+
+                                <a href="#" data-view="plans" class="panel-link">
+                                    Ver todos
+                                    <i class="bi bi-arrow-up-right"></i>
+                                </a>
+                            </div>
+
+                            <div id="nextPlanContainer">
+
+                                <div class="empty-state">
+                                    <div class="empty-state-icon">
+                                        <i class="bi bi-calendar-plus"></i>
+                                    </div>
+
+                                    <h4>Aún no tienes planes</h4>
+
+                                    <p>Empieza creando tu próximo plan.</p>
+
+                                    <a href="#" data-view="plans" class="btn btn-primary-green">
+                                        Crear mi primer plan
+                                    </a>
+                                </div>
+
+                            </div>
+
+                        </section>
+
+
+                        <section class="dashboard-panel quick-actions-panel">
+
+                            <div class="panel-header">
+                                <div>
+                                    <span class="panel-eyebrow">EMPIEZA EN UN CLIC</span>
+                                    <h3>Accesos rápidos</h3>
+                                </div>
+                            </div>
+
+                            <div class="quick-actions-grid">
+
+                                <a href="#" data-view="plans" class="quick-action">
+                                    <div class="quick-action-icon">
+                                        <i class="bi bi-plus-circle"></i>
+                                    </div>
+                                    <span>Nuevo plan</span>
+                                </a>
+
+                                <a href="#" data-view="calendar" class="quick-action">
+                                    <div class="quick-action-icon">
+                                        <i class="bi bi-calendar3"></i>
+                                    </div>
+                                    <span>Calendario</span>
+                                </a>
+
+                                <a href="#" data-view="generator" class="quick-action">
+                                    <div class="quick-action-icon">
+                                        <i class="bi bi-shuffle"></i>
+                                    </div>
+                                    <span>Generar idea</span>
+                                </a>
+
+                                <a href="#" data-view="expenses" class="quick-action">
+                                    <div class="quick-action-icon">
+                                        <i class="bi bi-wallet2"></i>
+                                    </div>
+                                    <span>Mis gastos</span>
+                                </a>
+
+                            </div>
+
+                        </section>
+
+                    </div>
+
+
+                    <!-- ACONTECIMIENTOS Y ACTIVIDAD -->
+
+                    <div class="dashboard-bottom-grid">
+
+                        <section class="dashboard-panel upcoming-panel">
+
+                            <div class="panel-header">
+                                <div>
+                                    <span class="panel-eyebrow">LO QUE VIENE</span>
+                                    <h3>Próximos acontecimientos</h3>
+                                </div>
+
+                                <a href="#" data-view="calendar" class="panel-link">
+                                    Ver calendario
+                                </a>
+                            </div>
+
+                            <div id="upcomingEventsList">
+
+                                <div class="empty-state empty-state-small">
+                                    <i class="bi bi-calendar2-event"></i>
+                                    <p>No hay próximos acontecimientos.</p>
+                                </div>
+
+                            </div>
+
+                        </section>
+
+
+                        <section class="dashboard-panel activity-panel">
+
+                            <div class="panel-header">
+                                <div>
+                                    <span class="panel-eyebrow">TU ACTIVIDAD</span>
+                                    <h3>Actividad reciente</h3>
+                                </div>
+                            </div>
+
+                            <div id="recentActivityList">
+
+                                <div class="empty-state empty-state-small">
+                                    <i class="bi bi-activity"></i>
+                                    <p>Tu actividad aparecerá aquí.</p>
+                                </div>
+
+                            </div>
+
+                        </section>
+
+                    </div>
+
+
+                    <!-- CALENDARIO RESUMIDO -->
+
+                    <section class="dashboard-panel mini-calendar-panel">
+
+                        <div class="panel-header">
+                            <div>
+                                <span class="panel-eyebrow">ORGANIZA TU TIEMPO</span>
+                                <h3>Tu calendario</h3>
+                            </div>
+
+                            <a href="#" data-view="calendar" class="panel-link">
+                                Abrir calendario
+                            </a>
+                        </div>
+
+                        <div id="dashboardMiniCalendar">
+                            <div class="empty-state empty-state-small">
+                                <i class="bi bi-calendar-week"></i>
+                                <p>Tu calendario aparecerá aquí.</p>
+                            </div>
+                        </div>
+
+                    </section>
+
+                </section>
+
+
+                <!-- =============================================
+                     MIS PLANES
+                ============================================== -->
+
+                <section data-page="plans" class="d-none">
+
+                    <div class="page-section-header">
+                        <div>
+                            <span class="panel-eyebrow">ORGANIZA TUS EXPERIENCIAS</span>
+                            <h2>Mis planes</h2>
+                            <p>Todos tus planes, quedadas y actividades en un mismo lugar.</p>
+                        </div>
+
+                        <button type="button" class="btn btn-primary-green" id="createPlanButton">
+                            <i class="bi bi-plus-lg me-2"></i>
+                            Nuevo plan
+                        </button>
+                    </div>
+
+                    <div id="plansModuleContainer"></div>
+
+                </section>
+
+
+                <!-- =============================================
+                     CALENDARIO
+                ============================================== -->
+
+                <section data-page="calendar" class="d-none">
+
+                    <div class="page-section-header">
+                        <div>
+                            <span class="panel-eyebrow">NO TE PIERDAS NADA</span>
+                            <h2>Calendario</h2>
+                            <p>Consulta y organiza tus próximos acontecimientos.</p>
+                        </div>
+                    </div>
+
+                    <div id="calendarModuleContainer"></div>
+
+                </section>
+
+
+                <!-- =============================================
+                     GENERADOR
+                ============================================== -->
+
+                <section data-page="generator" class="d-none">
+
+                    <div class="page-section-header">
+                        <div>
+                            <span class="panel-eyebrow">SAL DE LA RUTINA</span>
+                            <h2>Descubre tu próximo plan</h2>
+                            <p>Encuentra nuevas experiencias y rompe con la rutina.</p>
+                        </div>
+                    </div>
+
+                    <div id="generatorModuleContainer"></div>
+
+                </section>
+
+
+                <!-- =============================================
+                     FAVORITOS
+                ============================================== -->
+
+                <section data-page="favorites" class="d-none">
+
+                    <div class="page-section-header">
+                        <div>
+                            <span class="panel-eyebrow">TUS IDEAS GUARDADAS</span>
+                            <h2>Ideas favoritas</h2>
+                            <p>Guarda las ideas que más te gustan.</p>
+                        </div>
+                    </div>
+
+                    <div id="favoritesModuleContainer"></div>
+
+                </section>
+
+
+                <!-- =============================================
+                     GASTOS
+                ============================================== -->
+
+                <section data-page="expenses" class="d-none">
+
+                    <div class="page-section-header">
+                        <div>
+                            <span class="panel-eyebrow">CONTROLA TUS GASTOS</span>
+                            <h2>Presupuestos y gastos</h2>
+                            <p>Controla el presupuesto de tus experiencias.</p>
+                        </div>
+                    </div>
+
+                    <div id="expensesModuleContainer"></div>
+
+                </section>
+
+
+                <!-- =============================================
+                     HISTORIAL
+                ============================================== -->
+
+                <section data-page="history" class="d-none">
+
+                    <div class="page-section-header">
+                        <div>
+                            <span class="panel-eyebrow">TUS MEJORES RECUERDOS</span>
+                            <h2>Historial</h2>
+                            <p>Recupera los planes y experiencias que ya has vivido.</p>
+                        </div>
+                    </div>
+
+                    <div id="historyModuleContainer"></div>
+
+                </section>
+
+
+                <!-- =============================================
+                     CONFIGURACIÓN
+                ============================================== -->
+
+                <section data-page="settings" class="d-none">
+
+                    <div class="page-section-header">
+                        <div>
+                            <span class="panel-eyebrow">PERSONALIZA TU ESPACIO</span>
+                            <h2>Configuración</h2>
+                            <p>Gestiona tu perfil, preferencias y datos.</p>
+                        </div>
+                    </div>
+
+                    <div id="settingsModuleContainer"></div>
+
+                </section>
+
+
+            </div>
+
+
+            <!-- FOOTER -->
+
+            <footer class="app-footer">
+                <span>PLANEA</span>
+                <span>Organiza. Comparte. Disfruta.</span>
+            </footer>
+
+        </main>
+
+
+        <!-- =================================================
+             NAVEGACIÓN INFERIOR MÓVIL
+        ================================================== -->
+
+        <nav class="mobile-bottom-nav" aria-label="Navegación principal">
+
+            <a href="#" class="mobile-nav-item" data-view="dashboard">
+                <i class="bi bi-house-door"></i>
+                <span>Inicio</span>
+            </a>
+
+            <a href="#" class="mobile-nav-item" data-view="plans">
+                <i class="bi bi-calendar2-check"></i>
+                <span>Planes</span>
+            </a>
+
+            <a href="#" class="mobile-nav-item" data-view="calendar">
+                <i class="bi bi-calendar3"></i>
+                <span>Calendario</span>
+            </a>
+
+            <a href="#" class="mobile-nav-item" data-view="generator">
+                <i class="bi bi-compass"></i>
+                <span>Ideas</span>
+            </a>
+
+            <button
+                type="button"
+                class="mobile-nav-item"
+                data-bs-toggle="offcanvas"
+                data-bs-target="#moreMenu"
+                aria-controls="moreMenu"
+            >
+                <i class="bi bi-grid"></i>
+                <span>Más</span>
+            </button>
+
+        </nav>
+
+
+        <!-- =================================================
+             PANEL MÁS
+        ================================================== -->
+
+        <div
+            class="offcanvas offcanvas-bottom mobile-more-menu"
+            tabindex="-1"
+            id="moreMenu"
+            aria-labelledby="moreMenuLabel"
+        >
+
+            <div class="offcanvas-header">
+
+                <div>
+                    <span class="panel-eyebrow">TU ESPACIO PERSONAL</span>
+                    <h5 class="offcanvas-title" id="moreMenuLabel">Más opciones</h5>
+                </div>
+
+                <button
+                    type="button"
+                    class="btn-close btn-close-white"
+                    data-bs-dismiss="offcanvas"
+                    aria-label="Cerrar"
+                ></button>
+
+            </div>
+
+
+            <div class="offcanvas-body">
+
+                <div class="mobile-more-grid">
+
+                    <a href="#" class="mobile-more-item" data-view="favorites" data-bs-dismiss="offcanvas">
+                        <i class="bi bi-heart"></i>
+                        <span>Favoritos</span>
+                    </a>
+
+                    <a href="#" class="mobile-more-item" data-view="expenses" data-bs-dismiss="offcanvas">
+                        <i class="bi bi-wallet2"></i>
+                        <span>Gastos</span>
+                    </a>
+
+                    <a href="#" class="mobile-more-item" data-view="history" data-bs-dismiss="offcanvas">
+                        <i class="bi bi-clock-history"></i>
+                        <span>Historial</span>
+                    </a>
+
+                    <a href="#" class="mobile-more-item" data-view="settings" data-bs-dismiss="offcanvas">
+                        <i class="bi bi-gear"></i>
+                        <span>Configuración</span>
+                    </a>
+
+                    <button
+                        type="button"
+                        class="mobile-more-item"
+                        data-bs-toggle="modal"
+                        data-bs-target="#profileModal"
+                        data-bs-dismiss="offcanvas"
+                    >
+                        <i class="bi bi-person-circle"></i>
+                        <span>Mi perfil</span>
+                    </button>
+
+                </div>
+
+                <div class="mobile-more-footer">
+                    PLANEA · Organiza. Comparte. Disfruta.
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         MODAL PERFIL
+    ====================================================== -->
+
+    <div
+        class="modal fade"
+        id="profileModal"
+        tabindex="-1"
+        aria-labelledby="profileModalLabel"
+        aria-hidden="true"
+    >
+
+        <div class="modal-dialog modal-dialog-centered">
+
+            <div class="modal-content profile-modal-content">
+
+                <div class="modal-header">
+
+                    <div>
+                        <span class="panel-eyebrow">TU CUENTA PERSONAL</span>
+                        <h5 class="modal-title" id="profileModalLabel">Mi perfil</h5>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="btn-close btn-close-white"
+                        data-bs-dismiss="modal"
+                        aria-label="Cerrar"
+                    ></button>
+
+                </div>
+
+
+                <div class="modal-body">
+
+                    <div class="profile-avatar-section">
+
+                        <div class="avatar avatar-xl" id="editProfileAvatar">
+                            <i class="bi bi-person-fill"></i>
+                        </div>
+
+                        <label for="profilePhotoInput" class="btn btn-outline-light btn-sm">
+                            <i class="bi bi-camera me-2"></i>
+                            Cambiar fotografía
+                        </label>
+
+                        <input
+                            type="file"
+                            id="profilePhotoInput"
+                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            hidden
+                        >
+
+                        <button
+                            type="button"
+                            class="btn btn-link text-danger btn-sm"
+                            id="removeProfilePhoto"
+                        >
+                            Eliminar fotografía
+                        </button>
+
+                    </div>
+
+
+                    <div class="form-group mt-4">
+
+                        <label for="profileNameInput">Nombre</label>
+
+                        <input
+                            type="text"
+                            id="profileNameInput"
+                            class="form-control"
+                            maxlength="40"
+                            placeholder="Tu nombre..."
+                        >
+
+                    </div>
+
+                </div>
+
+
+                <div class="modal-footer">
+
+                    <button
+                        type="button"
+                        class="btn btn-outline-light"
+                        data-bs-dismiss="modal"
+                    >
+                        Cancelar
+                    </button>
+
+                    <button
+                        type="button"
+                        class="btn btn-primary-green"
+                        id="saveProfileButton"
+                    >
+                        Guardar cambios
+                    </button>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         TOAST
+    ====================================================== -->
+
+    <div class="toast-container position-fixed bottom-0 end-0 p-3">
+
+        <div
+            id="appToast"
+            class="toast"
+            role="alert"
+            aria-live="assertive"
+            aria-atomic="true"
+        >
+
+            <div class="toast-header">
+
+                <img
+                    src="assets/images/logo.svg"
+                    class="rounded me-2"
+                    width="20"
+                    height="20"
+                    alt="PLANEA"
+                >
+
+                <strong class="me-auto">PLANEA</strong>
+
+                <small>Ahora</small>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="toast"
+                    aria-label="Cerrar"
+                ></button>
+
+            </div>
+
+            <div class="toast-body" id="appToastMessage">
+                Operación realizada correctamente.
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- =====================================================
+         SCRIPTS
+    ====================================================== -->
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script src="assets/js/core/storage.js"></script>
+    <script src="assets/js/utils/images.js"></script>
+    <script src="assets/js/core/router.js"></script>
+
+    <script src="assets/js/modules/profile.js"></script>
+    <script src="assets/js/modules/dashboard.js"></script>
+
+    <script src="assets/js/core/app.js"></script>
+
+</body>
+</html>

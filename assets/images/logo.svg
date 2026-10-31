@@ -1,0 +1,81 @@
+
+<svg xmlns="http://www.w3.org/2000/svg"
+     viewBox="0 0 100 100"
+     width="100"
+     height="100">
+
+    <defs>
+        <linearGradient id="planeaGradient"
+                        x1="0" y1="0"
+                        x2="1" y2="1">
+            <stop offset="0%" stop-color="#69D5A0"/>
+            <stop offset="100%" stop-color="#16A36A"/>
+        </linearGradient>
+
+        <filter id="softGlow"
+                x="-50%" y="-50%"
+                width="200%" height="200%">
+            <feGaussianBlur stdDeviation="3"
+                            result="blur"/>
+            <feComposite in="SourceGraphic"
+                         in2="blur"
+                         operator="over"/>
+        </filter>
+    </defs>
+
+    <!-- Fondo -->
+    <rect x="3" y="3"
+          width="94" height="94"
+          rx="25"
+          fill="#17231C"
+          stroke="#294234"
+          stroke-width="1.5"/>
+
+    <!-- Círculo decorativo -->
+    <circle cx="50" cy="50"
+            r="31"
+            fill="none"
+            stroke="#16A36A"
+            stroke-width="1.5"
+            opacity="0.18"/>
+
+    <!-- Ruta principal -->
+    <path d="M25 69 L42 51 L54 59 L76 32"
+          fill="none"
+          stroke="url(#planeaGradient)"
+          stroke-width="6"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          filter="url(#softGlow)"/>
+
+    <!-- Puntos de conexión -->
+    <circle cx="25" cy="69"
+            r="6"
+            fill="#17231C"
+            stroke="#69D5A0"
+            stroke-width="4"/>
+
+    <circle cx="42" cy="51"
+            r="5"
+            fill="#17231C"
+            stroke="#69D5A0"
+            stroke-width="3.5"/>
+
+    <circle cx="54" cy="59"
+            r="5"
+            fill="#17231C"
+            stroke="#69D5A0"
+            stroke-width="3.5"/>
+
+    <circle cx="76" cy="32"
+            r="7"
+            fill="url(#planeaGradient)"/>
+
+    <!-- Destello final -->
+    <path d="M76 19 V13 M89 32 H95 M85 23 L89 19"
+          fill="none"
+          stroke="#69D5A0"
+          stroke-width="2.5"
+          stroke-linecap="round"/>
+
+</svg>
