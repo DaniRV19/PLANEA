@@ -1,646 +1,282 @@
 
 /* =========================================================
    PLANEA - ROUTER
-   Navegación principal de la aplicación
-========================================================= */
+   Archivo: assets/js/core/router.js
+   ========================================================= */
 
 (() => {
     "use strict";
 
-    /* =====================================================
-       CONFIGURACIÓN
-    ===================================================== */
+    let initialized = false;
+    let currentView = null;
+
+    const DEFAULT_VIEW = "dashboard";
 
     const VALID_VIEWS = [
         "dashboard",
         "plans",
         "calendar",
+        "participants",
         "generator",
         "favorites",
-        "expenses",
+        "budget",
         "history",
         "settings"
     ];
 
-    const PAGE_TITLES = {
-        dashboard: "Inicio",
-        plans: "Mis planes",
-        calendar: "Calendario",
-        generator: "Descubre tu próximo plan",
-        favorites: "Ideas favoritas",
-        expenses: "Presupuestos y gastos",
-        history: "Historial",
-        settings: "Configuración"
-    };
-
-    const LAST_VIEW_KEY = "planea_last_view";
-
-    let currentView = "dashboard";
-    let initialized = false;
-
-
-    /* =====================================================
-       ELEMENTOS
-    ===================================================== */
-
-    const getSidebar = () => document.getElementById("sidebar");
-
-    const getSidebarOverlay = () =>
-        document.querySelector(".sidebar-overlay");
-
-    const getMobileMenuButton = () =>
-        document.querySelector(".mobile-menu-button");
-
-    const getMainArea = () =>
-        document.querySelector(".main-area");
-
-    const getMoreMenu = () =>
-        document.getElementById("moreMenu");
-
-
     /* =====================================================
        UTILIDADES
-    ===================================================== */
+       ===================================================== */
 
-    function normalizeView(view) {
-        return VALID_VIEWS.includes(view) ? view : "dashboard";
-    }
-
-
-    function isMobile() {
-        return window.matchMedia("(max-width: 768px)").matches;
-    }
-
-
-    function saveLastView(view) {
-        try {
-            localStorage.setItem(LAST_VIEW_KEY, view);
-        } catch (error) {
-            console.warn("PLANEA: No se pudo guardar la última vista.", error);
-        }
-    }
-
-
-    function getLastView() {
-        try {
-            const savedView = localStorage.getItem(LAST_VIEW_KEY);
-
-            if (savedView && VALID_VIEWS.includes(savedView)) {
-                return savedView;
-            }
-        } catch (error) {
-            console.warn("PLANEA: No se pudo recuperar la última vista.", error);
-        }
-
-        return "dashboard";
-    }
-
-
-    function dispatchViewChanged(view) {
-        document.dispatchEvent(
-            new CustomEvent("planea:viewChanged", {
-                detail: {
-                    view: view
-                }
-            })
+    function getSections() {
+        return Array.from(
+            document.querySelectorAll("[data-page]")
         );
     }
 
-
-    /* =====================================================
-       CAMBIAR DE PÁGINA
-    ===================================================== */
-
-    function navigateTo(view, options = {}) {
-
-        const targetView = normalizeView(view);
-
-        const previousView = currentView;
-
-        currentView = targetView;
-
-        renderView(targetView);
-
-        updateNavigation(targetView);
-
-        updatePageTitle(targetView);
-
-        saveLastView(targetView);
-
-        closeMobileMenu();
-
-        closeMoreMenu();
-
-        if (previousView !== targetView || options.forceRender) {
-            dispatchViewChanged(targetView);
-        }
-
-        if (options.scrollToTop !== false) {
-            scrollToTop();
-        }
-
-        return targetView;
+    function getNavigationLinks() {
+        return Array.from(
+            document.querySelectorAll("[data-view]")
+        );
     }
 
+    function isValidView(view) {
+        return VALID_VIEWS.includes(view);
+    }
+
+    function getSection(view) {
+        return document.querySelector(
+            `[data-page="${view}"]`
+        );
+    }
 
     /* =====================================================
-       MOSTRAR CONTENIDO
-    ===================================================== */
+       MOSTRAR VISTA
+       ===================================================== */
 
-    function renderView(view) {
+    function showView(view) {
+        const section = getSection(view);
 
-        const targetView = normalizeView(view);
-
-        const pages = document.querySelectorAll("[data-page]");
-
-        pages.forEach(page => {
-
-            const isActive = page.dataset.page === targetView;
-
-            page.classList.toggle("d-none", !isActive);
-
-            page.setAttribute(
-                "aria-hidden",
-                isActive ? "false" : "true"
+        if (!section) {
+            console.warn(
+                `PLANEA ROUTER: No se encuentra la sección "${view}".`
             );
 
+            return false;
+        }
+
+        getSections().forEach(page => {
+            const isActive = page.dataset.page === view;
+
+            page.classList.toggle("d-none", !isActive);
+            page.setAttribute(
+                "aria-hidden",
+                String(!isActive)
+            );
+
+            if (isActive) {
+                page.classList.add("active-page");
+            } else {
+                page.classList.remove("active-page");
+            }
         });
 
+        return true;
     }
-
 
     /* =====================================================
        ACTUALIZAR NAVEGACIÓN
-    ===================================================== */
+       ===================================================== */
 
     function updateNavigation(view) {
+        getNavigationLinks().forEach(link => {
+            const isActive = link.dataset.view === view;
 
-        const navigationItems = document.querySelectorAll("[data-view]");
-
-        navigationItems.forEach(item => {
-
-            const itemView = item.dataset.view;
-
-            const isActive = itemView === view;
-
-            item.classList.toggle("active", isActive);
+            link.classList.toggle("active", isActive);
 
             if (isActive) {
-                item.setAttribute("aria-current", "page");
+                link.setAttribute("aria-current", "page");
             } else {
-                item.removeAttribute("aria-current");
+                link.removeAttribute("aria-current");
             }
-
         });
-
     }
 
-
     /* =====================================================
-       ACTUALIZAR TÍTULO
-    ===================================================== */
+       NAVEGACIÓN PRINCIPAL
+       ===================================================== */
 
-    function updatePageTitle(view) {
+    function navigateTo(view) {
+        if (!view || !isValidView(view)) {
+            console.warn(
+                `PLANEA ROUTER: Vista no válida: "${view}".`
+            );
 
-        const titleElement = document.querySelector("[data-page-title]");
-
-        if (!titleElement) {
-            return;
+            return false;
         }
 
-        titleElement.textContent =
-            PAGE_TITLES[view] || PAGE_TITLES.dashboard;
+        /*
+         * Buscamos la sección en cada navegación.
+         * Esto permite utilizar vistas creadas dinámicamente,
+         * como el módulo de Participantes.
+         */
 
-        document.title =
-            `${PAGE_TITLES[view] || "Inicio"} | PLANEA`;
+        const section = getSection(view);
 
-    }
+        if (!section) {
+            console.warn(
+                `PLANEA ROUTER: La vista "${view}" todavía no existe en el DOM.`
+            );
 
+            return false;
+        }
 
-    /* =====================================================
-       SCROLL
-    ===================================================== */
+        const previousView = currentView;
 
-    function scrollToTop() {
+        if (!showView(view)) {
+            return false;
+        }
+
+        currentView = view;
+
+        updateNavigation(view);
+
+        /*
+         * Evento global para que los módulos puedan
+         * detectar cuándo se cambia de pantalla.
+         */
+
+        document.dispatchEvent(
+            new CustomEvent("planea:viewChanged", {
+                detail: {
+                    view: view,
+                    previousView: previousView
+                }
+            })
+        );
+
+        /*
+         * Volver al inicio del contenido.
+         */
 
         window.scrollTo({
             top: 0,
             behavior: "smooth"
         });
 
-    }
-
-
-    /* =====================================================
-       SIDEBAR MÓVIL
-    ===================================================== */
-
-    function openMobileMenu() {
-
-        if (!isMobile()) {
-            return;
-        }
-
-        const sidebar = getSidebar();
-        const overlay = getSidebarOverlay();
-        const button = getMobileMenuButton();
-
-        if (!sidebar || !overlay) {
-            return;
-        }
-
-        sidebar.classList.add("open");
-        overlay.classList.add("active");
-
-        document.body.classList.add("sidebar-open");
-
-        if (button) {
-            button.setAttribute("aria-expanded", "true");
-            button.setAttribute("aria-label", "Cerrar menú");
-        }
-
-    }
-
-
-    function closeMobileMenu() {
-
-        const sidebar = getSidebar();
-        const overlay = getSidebarOverlay();
-        const button = getMobileMenuButton();
-
-        if (sidebar) {
-            sidebar.classList.remove("open");
-        }
-
-        if (overlay) {
-            overlay.classList.remove("active");
-        }
-
-        document.body.classList.remove("sidebar-open");
-
-        if (button) {
-            button.setAttribute("aria-expanded", "false");
-            button.setAttribute("aria-label", "Abrir menú");
-        }
-
-    }
-
-
-    function toggleMobileMenu() {
-
-        const sidebar = getSidebar();
-
-        if (!sidebar) {
-            return;
-        }
-
-        if (sidebar.classList.contains("open")) {
-            closeMobileMenu();
-        } else {
-            openMobileMenu();
-        }
-
-    }
-
-
-    /* =====================================================
-       MENÚ MÁS (OFFCANVAS BOOTSTRAP)
-    ===================================================== */
-
-    function openMoreMenu() {
-
-        const moreMenu = getMoreMenu();
-
-        if (!moreMenu || !window.bootstrap) {
-            return;
-        }
-
-        const instance =
-            bootstrap.Offcanvas.getOrCreateInstance(moreMenu);
-
-        instance.show();
-
-    }
-
-
-    function closeMoreMenu() {
-
-        const moreMenu = getMoreMenu();
-
-        if (!moreMenu || !window.bootstrap) {
-            return;
-        }
-
-        const instance =
-            bootstrap.Offcanvas.getInstance(moreMenu);
-
-        if (instance) {
-            instance.hide();
-        }
-
-    }
-
-
-    /* =====================================================
-       SIDEBAR CONTRAÍDA
-    ===================================================== */
-
-    function toggleSidebar() {
-
-        if (isMobile()) {
-            return;
-        }
-
-        const sidebar = getSidebar();
-
-        if (!sidebar) {
-            return;
-        }
-
-        const isCollapsed = sidebar.classList.toggle("collapsed");
-
-        saveSidebarPreference(isCollapsed);
-
-    }
-
-
-    function saveSidebarPreference(isCollapsed) {
-
-        const storage = window.PLANEA_STORAGE;
-
-        if (!storage || typeof storage.getSettings !== "function") {
-            return;
-        }
-
-        const settings = storage.getSettings() || {};
-
-        storage.saveSettings({
-            ...settings,
-            sidebarCollapsed: Boolean(isCollapsed)
-        });
-
-    }
-
-
-    function restoreSidebarPreference() {
-
-        const sidebar = getSidebar();
-
-        if (!sidebar) {
-            return;
-        }
-
-        if (isMobile()) {
-            sidebar.classList.remove("collapsed");
-            return;
-        }
-
-        const storage = window.PLANEA_STORAGE;
-
-        if (!storage || typeof storage.getSettings !== "function") {
-            return;
-        }
-
-        const settings = storage.getSettings() || {};
-
-        sidebar.classList.toggle(
-            "collapsed",
-            Boolean(settings.sidebarCollapsed)
+        console.log(
+            `PLANEA ROUTER: Navegando a "${view}".`
         );
 
+        return true;
     }
-
 
     /* =====================================================
        EVENTOS DE NAVEGACIÓN
-    ===================================================== */
+       ===================================================== */
 
     function bindNavigationEvents() {
-
         /*
-         * Navegación general.
-         * Funciona tanto con el sidebar como con la barra
-         * inferior y los accesos internos del Dashboard.
+         * Delegación de eventos:
+         * también funciona con enlaces añadidos
+         * dinámicamente después de iniciar la aplicación.
          */
 
         document.addEventListener("click", event => {
+            const link = event.target.closest("[data-view]");
 
-            const navigationItem = event.target.closest("[data-view]");
+            if (!link) {
+                return;
+            }
 
-            if (!navigationItem) {
+            const view = link.dataset.view;
+
+            if (!view) {
                 return;
             }
 
             event.preventDefault();
 
-            const view = navigationItem.dataset.view;
-
-            if (!VALID_VIEWS.includes(view)) {
-                return;
-            }
-
             navigateTo(view);
-
         });
-
-
-        /*
-         * Botón hamburguesa.
-         */
-
-        const mobileButton = getMobileMenuButton();
-
-        if (mobileButton) {
-
-            mobileButton.addEventListener("click", event => {
-
-                event.preventDefault();
-
-                toggleMobileMenu();
-
-            });
-
-        }
-
-
-        /*
-         * Fondo oscuro del sidebar.
-         */
-
-        const overlay = getSidebarOverlay();
-
-        if (overlay) {
-
-            overlay.addEventListener("click", () => {
-                closeMobileMenu();
-            });
-
-        }
-
-
-        /*
-         * Botón de contraer sidebar.
-         */
-
-        const collapseButton =
-            document.querySelector("[data-sidebar-toggle]");
-
-        if (collapseButton) {
-
-            collapseButton.addEventListener("click", event => {
-
-                event.preventDefault();
-
-                toggleSidebar();
-
-            });
-
-        }
-
-
-        /*
-         * Cerrar con Escape.
-         */
-
-        document.addEventListener("keydown", event => {
-
-            if (event.key === "Escape") {
-
-                closeMobileMenu();
-
-            }
-
-        });
-
-
-        /*
-         * Cambio de tamaño de pantalla.
-         */
-
-        let resizeTimeout;
-
-        window.addEventListener("resize", () => {
-
-            clearTimeout(resizeTimeout);
-
-            resizeTimeout = setTimeout(() => {
-
-                if (!isMobile()) {
-                    closeMobileMenu();
-                }
-
-                restoreSidebarPreference();
-
-            }, 120);
-
-        });
-
-
-        /*
-         * Al cerrar el panel Más, se mantiene sincronizada
-         * la navegación.
-         */
-
-        const moreMenu = getMoreMenu();
-
-        if (moreMenu) {
-
-            moreMenu.addEventListener("hidden.bs.offcanvas", () => {
-
-                const moreButton = document.querySelector(
-                    '.mobile-bottom-nav [data-bs-target="#moreMenu"]'
-                );
-
-                if (moreButton) {
-                    moreButton.setAttribute("aria-expanded", "false");
-                }
-
-            });
-
-        }
-
-
-        /*
-         * Al abrir el panel Más, indicamos que está expandido.
-         */
-
-        if (moreMenu) {
-
-            moreMenu.addEventListener("show.bs.offcanvas", () => {
-
-                const moreButton = document.querySelector(
-                    '.mobile-bottom-nav [data-bs-target="#moreMenu"]'
-                );
-
-                if (moreButton) {
-                    moreButton.setAttribute("aria-expanded", "true");
-                }
-
-            });
-
-        }
-
     }
 
+    /* =====================================================
+       VISTA INICIAL
+       ===================================================== */
+
+    function getInitialView() {
+        const activeSection = document.querySelector(
+            '[data-page]:not(.d-none)'
+        );
+
+        if (
+            activeSection &&
+            isValidView(activeSection.dataset.page)
+        ) {
+            return activeSection.dataset.page;
+        }
+
+        return DEFAULT_VIEW;
+    }
 
     /* =====================================================
        INICIALIZACIÓN
-    ===================================================== */
+       ===================================================== */
 
     function init() {
-
         if (initialized) {
             return;
         }
 
         initialized = true;
 
-        restoreSidebarPreference();
-
         bindNavigationEvents();
 
-        const initialView = getLastView();
+        const initialView = getInitialView();
 
-        currentView = initialView;
+        /*
+         * Intentamos mostrar la vista inicial.
+         * Si no existe, probamos con dashboard.
+         */
 
-        renderView(initialView);
+        if (!showView(initialView)) {
+            if (!showView(DEFAULT_VIEW)) {
+                console.error(
+                    "PLANEA ROUTER: No se ha encontrado ninguna vista inicial."
+                );
 
-        updateNavigation(initialView);
+                return;
+            }
 
-        updatePageTitle(initialView);
+            currentView = DEFAULT_VIEW;
+        } else {
+            currentView = initialView;
+        }
 
-        dispatchViewChanged(initialView);
+        updateNavigation(currentView);
 
+        document.dispatchEvent(
+            new CustomEvent("planea:viewChanged", {
+                detail: {
+                    view: currentView,
+                    previousView: null
+                }
+            })
+        );
+
+        console.log(
+            "PLANEA ROUTER: Inicializado correctamente."
+        );
     }
 
-
     /* =====================================================
-       API PÚBLICA
-    ===================================================== */
+       API GLOBAL
+       ===================================================== */
 
     window.PLANEA_ROUTER = {
-
         init,
-
         navigateTo,
-
-        renderView,
-
-        updateNavigation,
-
-        openMobileMenu,
-
-        closeMobileMenu,
-
-        toggleMobileMenu,
-
-        openMoreMenu,
-
-        closeMoreMenu,
-
-        toggleSidebar,
-
-        restoreSidebarPreference,
 
         getCurrentView() {
             return currentView;
@@ -648,8 +284,13 @@
 
         getValidViews() {
             return [...VALID_VIEWS];
-        }
+        },
 
+        refreshNavigation() {
+            if (currentView) {
+                updateNavigation(currentView);
+            }
+        }
     };
 
 })();

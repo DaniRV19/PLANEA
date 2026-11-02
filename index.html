@@ -974,5 +974,24 @@
 
     <script src="assets/js/core/app.js"></script>
 
+
+
+    <script>
+document.addEventListener("show.bs.modal", function (event) {
+    const modal = event.target;
+
+    if (
+        modal.id === "participantModal" ||
+        modal.id === "participantPlansModal"
+    ) {
+        if (modal.parentElement !== document.body) {
+            document.body.appendChild(modal);
+        }
+    }
+});
+</script>
+
+
+
 </body>
 </html>

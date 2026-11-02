@@ -65,7 +65,31 @@
 
                 await window.PLANEA_PLANS.init();
 
-                // 7. Mostrar Dashboard inicialmente
+                // 7. Cargar módulo Calendario
+                await this.loadCalendarModule();
+
+                // 8. Inicializar módulo Calendario
+                if (!window.PLANEA_CALENDAR) {
+                    throw new Error(
+                        "El módulo Calendario no está disponible."
+                    );
+                }
+
+                await window.PLANEA_CALENDAR.init();
+
+                // 9. Cargar módulo Participantes
+                await this.loadParticipantsModule();
+
+                // 10. Inicializar módulo Participantes
+                if (!window.PLANEA_PARTICIPANTS) {
+                    throw new Error(
+                        "El módulo Participantes no está disponible."
+                    );
+                }
+
+                await window.PLANEA_PARTICIPANTS.init();
+
+                // 11. Mostrar Dashboard inicialmente
                 const profile = window.PLANEA_STORAGE.getProfile();
 
                 if (profile?.name) {
@@ -103,24 +127,19 @@
 
             return new Promise((resolve, reject) => {
 
-                // Si el módulo ya está registrado, no cargarlo otra vez
                 if (window.PLANEA_PLANS) {
                     resolve();
                     return;
                 }
 
-                // Buscar una etiqueta anterior del módulo
                 const existingScript = document.querySelector(
                     'script[data-planea-module="plans"]'
                 );
 
-                // Si existe pero no ha registrado el módulo,
-                // eliminarla para realizar una carga limpia.
                 if (existingScript) {
                     existingScript.remove();
                 }
 
-                // Crear una nueva etiqueta script
                 const script = document.createElement("script");
 
                 script.src = new URL(
@@ -153,6 +172,132 @@
                     reject(
                         new Error(
                             "No se ha podido cargar assets/js/modules/plans.js. Comprueba la ruta del archivo."
+                        )
+                    );
+
+                };
+
+                document.body.appendChild(script);
+
+            });
+        },
+
+        /* =====================================================
+           CARGA DINÁMICA DEL MÓDULO CALENDARIO
+        ===================================================== */
+
+        loadCalendarModule() {
+
+            return new Promise((resolve, reject) => {
+
+                if (window.PLANEA_CALENDAR) {
+                    resolve();
+                    return;
+                }
+
+                const existingScript = document.querySelector(
+                    'script[data-planea-module="calendar"]'
+                );
+
+                if (existingScript) {
+                    existingScript.remove();
+                }
+
+                const script = document.createElement("script");
+
+                script.src = new URL(
+                    "assets/js/modules/calendar.js",
+                    document.baseURI
+                ).href;
+
+                script.dataset.planeaModule = "calendar";
+
+                script.onload = () => {
+
+                    if (!window.PLANEA_CALENDAR) {
+                        reject(
+                            new Error(
+                                "calendar.js se ha cargado, pero no ha registrado PLANEA_CALENDAR."
+                            )
+                        );
+                        return;
+                    }
+
+                    console.log(
+                        "PLANEA: módulo Calendario cargado correctamente."
+                    );
+
+                    resolve();
+                };
+
+                script.onerror = () => {
+
+                    reject(
+                        new Error(
+                            "No se ha podido cargar assets/js/modules/calendar.js. Comprueba la ruta del archivo."
+                        )
+                    );
+
+                };
+
+                document.body.appendChild(script);
+
+            });
+        },
+
+        /* =====================================================
+           CARGA DINÁMICA DEL MÓDULO PARTICIPANTES
+        ===================================================== */
+
+        loadParticipantsModule() {
+
+            return new Promise((resolve, reject) => {
+
+                if (window.PLANEA_PARTICIPANTS) {
+                    resolve();
+                    return;
+                }
+
+                const existingScript = document.querySelector(
+                    'script[data-planea-module="participants"]'
+                );
+
+                if (existingScript) {
+                    existingScript.remove();
+                }
+
+                const script = document.createElement("script");
+
+                script.src = new URL(
+                    "assets/js/modules/participants.js",
+                    document.baseURI
+                ).href;
+
+                script.dataset.planeaModule = "participants";
+
+                script.onload = () => {
+
+                    if (!window.PLANEA_PARTICIPANTS) {
+                        reject(
+                            new Error(
+                                "participants.js se ha cargado, pero no ha registrado PLANEA_PARTICIPANTS."
+                            )
+                        );
+                        return;
+                    }
+
+                    console.log(
+                        "PLANEA: módulo Participantes cargado correctamente."
+                    );
+
+                    resolve();
+                };
+
+                script.onerror = () => {
+
+                    reject(
+                        new Error(
+                            "No se ha podido cargar assets/js/modules/participants.js. Comprueba la ruta del archivo."
                         )
                     );
 

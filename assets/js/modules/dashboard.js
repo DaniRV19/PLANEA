@@ -64,6 +64,23 @@
         ].join("-");
     }
 
+    function normalizeStatus(status) {
+        return String(status || "Pendiente")
+            .trim()
+            .toLowerCase();
+    }
+
+    function getPlanStatus(plan) {
+        return plan.status || "Pendiente";
+    }
+
+    function isActivePlan(plan) {
+        const status = normalizeStatus(getPlanStatus(plan));
+
+        return status !== "cancelado" &&
+               status !== "realizado";
+    }
+
     function getPlanExpenses(plan) {
         if (!Array.isArray(plan.expenses)) {
             return 0;
@@ -74,12 +91,8 @@
         }, 0);
     }
 
-    function getPlanStatus(plan) {
-        return plan.status || "Pendiente";
-    }
-
     function getStatusClass(status) {
-        const normalized = String(status).toLowerCase();
+        const normalized = normalizeStatus(status);
 
         if (normalized === "confirmado") {
             return "status-confirmed";
@@ -111,7 +124,26 @@
     }
 
     function getPlans() {
-        return STORAGE() ? STORAGE().getPlans() : [];
+        if (!STORAGE() || typeof STORAGE().getPlans !== "function") {
+            return [];
+        }
+
+        const plans = STORAGE().getPlans();
+
+        return Array.isArray(plans) ? plans : [];
+    }
+
+    function sortPlansByDate(a, b) {
+        const dateComparison = String(a.date || "")
+            .localeCompare(String(b.date || ""));
+
+        if (dateComparison !== 0) {
+            return dateComparison;
+        }
+
+        return String(a.time || "").localeCompare(
+            String(b.time || "")
+        );
     }
 
     /* =====================================================
@@ -147,25 +179,34 @@
         const plans = getPlans();
 
         const pending = plans.filter(plan =>
-            getPlanStatus(plan).toLowerCase() === "pendiente"
+            normalizeStatus(getPlanStatus(plan)) === "pendiente"
         ).length;
 
         const confirmed = plans.filter(plan =>
-            getPlanStatus(plan).toLowerCase() === "confirmado"
+            normalizeStatus(getPlanStatus(plan)) === "confirmado"
         ).length;
 
         const completed = plans.filter(plan =>
-            getPlanStatus(plan).toLowerCase() === "realizado"
+            normalizeStatus(getPlanStatus(plan)) === "realizado"
         ).length;
 
         const now = new Date();
 
+        const currentMonth = String(now.getMonth() + 1)
+            .padStart(2, "0");
+
+        const currentYear = String(now.getFullYear());
+
         const monthlyExpenses = plans.reduce((total, plan) => {
-            const planDate = new Date(`${plan.date}T00:00:00`);
+            if (!plan.date) {
+                return total;
+            }
+
+            const [year, month] = String(plan.date).split("-");
 
             const isCurrentMonth =
-                planDate.getMonth() === now.getMonth() &&
-                planDate.getFullYear() === now.getFullYear();
+                year === currentYear &&
+                month === currentMonth;
 
             if (!isCurrentMonth) {
                 return total;
@@ -205,26 +246,13 @@
 
         const plans = getPlans()
             .filter(plan => {
-                const status = getPlanStatus(plan).toLowerCase();
-
                 return (
                     plan.date &&
                     plan.date >= today &&
-                    status !== "cancelado" &&
-                    status !== "realizado"
+                    isActivePlan(plan)
                 );
             })
-            .sort((a, b) => {
-                const dateComparison = a.date.localeCompare(b.date);
-
-                if (dateComparison !== 0) {
-                    return dateComparison;
-                }
-
-                return String(a.time || "").localeCompare(
-                    String(b.time || "")
-                );
-            });
+            .sort(sortPlansByDate);
 
         const plan = plans[0];
 
@@ -242,7 +270,8 @@
                         y aparecerá aquí.
                     </p>
 
-                    <a href="#" data-view="plans" class="btn btn-primary-green">
+                    <a href="#" data-view="plans"
+                       class="btn btn-primary-green">
                         Crear mi primer plan
                         <i class="bi bi-plus-lg ms-2"></i>
                     </a>
@@ -252,10 +281,15 @@
             return;
         }
 
-        const category = escapeHTML(plan.category || "Otros");
+        const rawCategory = plan.category || "Otros";
+        const category = escapeHTML(rawCategory);
         const name = escapeHTML(plan.name || "Plan sin nombre");
-        const location = escapeHTML(plan.location || "Ubicación pendiente");
+        const location = escapeHTML(
+            plan.location || "Ubicación pendiente"
+        );
+
         const status = getPlanStatus(plan);
+
         const date = formatDate(plan.date, {
             weekday: "long"
         });
@@ -264,13 +298,14 @@
             <article class="next-plan-card">
 
                 <div class="next-plan-category">
-                    <i class="bi ${getCategoryIcon(category)}"></i>
+                    <i class="bi ${getCategoryIcon(rawCategory)}"></i>
                     ${category}
                 </div>
 
                 <h4>${name}</h4>
 
                 <div class="next-plan-details">
+
                     <span>
                         <i class="bi bi-calendar3"></i>
                         ${date}
@@ -287,9 +322,11 @@
                         <i class="bi bi-geo-alt"></i>
                         ${location}
                     </span>
+
                 </div>
 
                 <div class="next-plan-footer">
+
                     <span class="status-badge ${getStatusClass(status)}">
                         ${escapeHTML(status)}
                     </span>
@@ -297,6 +334,7 @@
                     <span class="next-plan-budget">
                         ${formatCurrency(plan.estimatedBudget)}
                     </span>
+
                 </div>
 
             </article>
@@ -318,16 +356,13 @@
 
         const upcoming = getPlans()
             .filter(plan => {
-                const status = getPlanStatus(plan).toLowerCase();
-
                 return (
                     plan.date &&
                     plan.date >= today &&
-                    status !== "cancelado" &&
-                    status !== "realizado"
+                    isActivePlan(plan)
                 );
             })
-            .sort((a, b) => a.date.localeCompare(b.date))
+            .sort(sortPlansByDate)
             .slice(0, 5);
 
         if (upcoming.length === 0) {
@@ -344,11 +379,16 @@
         container.innerHTML = upcoming.map(plan => {
             const date = new Date(`${plan.date}T00:00:00`);
 
+            if (Number.isNaN(date.getTime())) {
+                return "";
+            }
+
             return `
                 <article class="upcoming-event">
 
                     <div class="upcoming-event-date">
                         <strong>${date.getDate()}</strong>
+
                         <span>
                             ${new Intl.DateTimeFormat("es-ES", {
                                 month: "short"
@@ -357,12 +397,18 @@
                     </div>
 
                     <div class="upcoming-event-info">
-                        <h4>${escapeHTML(plan.name || "Plan sin nombre")}</h4>
+
+                        <h4>
+                            ${escapeHTML(plan.name || "Plan sin nombre")}
+                        </h4>
 
                         <span>
                             ${escapeHTML(plan.category || "Otros")}
-                            ${plan.time ? ` · ${escapeHTML(plan.time)}` : ""}
+                            ${plan.time
+                                ? ` · ${escapeHTML(plan.time)}`
+                                : ""}
                         </span>
+
                     </div>
 
                     <i class="bi bi-chevron-right"></i>
@@ -383,9 +429,27 @@
             return;
         }
 
-        const activities = STORAGE()
-            ? STORAGE().getActivity().slice(0, 5)
-            : [];
+        let activities = [];
+
+        if (
+            STORAGE() &&
+            typeof STORAGE().getActivity === "function"
+        ) {
+            const storedActivities = STORAGE().getActivity();
+
+            if (Array.isArray(storedActivities)) {
+                activities = storedActivities;
+            }
+        }
+
+        activities = [...activities]
+            .sort((a, b) => {
+                const dateA = new Date(a.date || 0).getTime();
+                const dateB = new Date(b.date || 0).getTime();
+
+                return dateB - dateA;
+            })
+            .slice(0, 5);
 
         if (activities.length === 0) {
             container.innerHTML = `
@@ -410,9 +474,13 @@
         container.innerHTML = activities.map(activity => {
             const icon = icons[activity.type] || "bi-activity";
 
-            const date = activity.date
+            const parsedDate = activity.date
                 ? new Date(activity.date)
                 : new Date();
+
+            const date = Number.isNaN(parsedDate.getTime())
+                ? new Date()
+                : parsedDate;
 
             const time = new Intl.DateTimeFormat("es-ES", {
                 day: "numeric",
@@ -429,8 +497,16 @@
                     </div>
 
                     <div class="activity-info">
-                        <p>${escapeHTML(activity.description || "Actividad realizada")}</p>
+
+                        <p>
+                            ${escapeHTML(
+                                activity.description ||
+                                "Actividad realizada"
+                            )}
+                        </p>
+
                         <span>${time}</span>
+
                     </div>
 
                 </article>
@@ -465,7 +541,7 @@
         const plansByDate = {};
 
         plans.forEach(plan => {
-            if (!plan.date) {
+            if (!plan.date || !isActivePlan(plan)) {
                 return;
             }
 
@@ -486,7 +562,9 @@
         let daysHTML = "";
 
         for (let i = 0; i < offset; i++) {
-            daysHTML += `<div class="mini-calendar-day empty"></div>`;
+            daysHTML += `
+                <div class="mini-calendar-day empty"></div>
+            `;
         }
 
         for (let day = 1; day <= daysInMonth; day++) {
@@ -499,38 +577,58 @@
             const hasPlans = Boolean(plansByDate[dateKey]);
             const isToday = day === now.getDate();
 
+            const planCount = hasPlans
+                ? plansByDate[dateKey].length
+                : 0;
+
             daysHTML += `
                 <div class="mini-calendar-day
                     ${isToday ? "today" : ""}
                     ${hasPlans ? "has-event" : ""}"
-                    title="${hasPlans ? plansByDate[dateKey].length + " plan(es)" : ""}">
+                    title="${
+                        hasPlans
+                            ? `${planCount} plan(es)`
+                            : ""
+                    }">
 
                     <span>${day}</span>
 
-                    ${hasPlans ? '<i class="mini-calendar-dot"></i>' : ""}
+                    ${
+                        hasPlans
+                            ? '<i class="mini-calendar-dot"></i>'
+                            : ""
+                    }
 
                 </div>
             `;
         }
 
+        const daysWithPlans = Object.keys(plansByDate)
+            .filter(date => {
+                return date.startsWith(
+                    `${year}-${String(month + 1).padStart(2, "0")}`
+                );
+            }).length;
+
         container.innerHTML = `
             <div class="mini-calendar">
 
                 <div class="mini-calendar-heading">
+
                     <h4>${monthName}</h4>
+
                     <span>
-                        ${Object.keys(plansByDate).filter(date => {
-                            return date.startsWith(
-                                `${year}-${String(month + 1).padStart(2, "0")}`
-                            );
-                        }).length} días con planes
+                        ${daysWithPlans} días con planes
                     </span>
+
                 </div>
 
                 <div class="mini-calendar-grid">
 
                     ${weekdays.map(day => `
-                        <div class="mini-calendar-weekday">${day}</div>
+                        <div class="mini-calendar-weekday">
+                            ${day}
+                        </div>
                     `).join("")}
 
                     ${daysHTML}
@@ -547,6 +645,10 @@
 
     function render() {
         if (!STORAGE()) {
+            console.warn(
+                "PLANEA: No se ha encontrado el sistema de almacenamiento."
+            );
+
             return;
         }
 
@@ -564,6 +666,7 @@
 
     function init() {
         if (initialized) {
+            render();
             return;
         }
 
@@ -572,14 +675,18 @@
         render();
 
         document.addEventListener("planea:viewChanged", event => {
-            if (event.detail.view === "dashboard") {
+            if (event.detail?.view === "dashboard") {
                 render();
             }
         });
 
-        document.addEventListener("planea:dataChanged", render);
+        document.addEventListener("planea:dataChanged", () => {
+            render();
+        });
 
-        console.log("PLANEA: Dashboard inicializado correctamente.");
+        console.log(
+            "PLANEA: Dashboard inicializado correctamente."
+        );
     }
 
     /* =====================================================
