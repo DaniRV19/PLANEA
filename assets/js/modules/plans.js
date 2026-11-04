@@ -1,7 +1,7 @@
-
 /* =========================================================
    PLANEA - MÓDULO MIS PLANES
-   Gestión de planes, categorías, estados e imágenes.
+   Gestión de planes, categorías, estados, imágenes,
+   filtros, ordenación y acciones rápidas.
 ========================================================= */
 
 (() => {
@@ -20,10 +20,13 @@
         removeExistingImage: false,
         previewObjectURL: null,
 
+        renderToken: 0,
+
         currentFilters: {
             search: "",
             category: "all",
-            status: "all"
+            status: "all",
+            sort: "date"
         },
 
         categories: [
@@ -108,7 +111,6 @@
 
                         <div>
                             <h2 class="fw-bold mb-1">Mis planes</h2>
-
                             <p class="text-secondary mb-0">
                                 Organiza tus próximas experiencias.
                             </p>
@@ -116,10 +118,8 @@
 
                         <button class="btn btn-success"
                                 id="createPlanButton">
-
                             <i class="bi bi-plus-lg me-2"></i>
                             Crear nuevo plan
-
                         </button>
 
                     </div>
@@ -131,14 +131,11 @@
                         <div class="col-6 col-xl-3">
                             <div class="card h-100 border-0 shadow-sm">
                                 <div class="card-body">
-
                                     <span class="text-secondary small">
                                         Total de planes
                                     </span>
-
                                     <h3 class="fw-bold mt-2 mb-0"
                                         id="plansTotalCount">0</h3>
-
                                 </div>
                             </div>
                         </div>
@@ -146,14 +143,11 @@
                         <div class="col-6 col-xl-3">
                             <div class="card h-100 border-0 shadow-sm">
                                 <div class="card-body">
-
                                     <span class="text-secondary small">
                                         Pendientes
                                     </span>
-
                                     <h3 class="fw-bold mt-2 mb-0"
                                         id="plansPendingCount">0</h3>
-
                                 </div>
                             </div>
                         </div>
@@ -161,14 +155,11 @@
                         <div class="col-6 col-xl-3">
                             <div class="card h-100 border-0 shadow-sm">
                                 <div class="card-body">
-
                                     <span class="text-secondary small">
                                         Confirmados
                                     </span>
-
                                     <h3 class="fw-bold mt-2 mb-0"
                                         id="plansConfirmedCount">0</h3>
-
                                 </div>
                             </div>
                         </div>
@@ -176,21 +167,18 @@
                         <div class="col-6 col-xl-3">
                             <div class="card h-100 border-0 shadow-sm">
                                 <div class="card-body">
-
                                     <span class="text-secondary small">
                                         Realizados
                                     </span>
-
                                     <h3 class="fw-bold mt-2 mb-0"
                                         id="plansCompletedCount">0</h3>
-
                                 </div>
                             </div>
                         </div>
 
                     </div>
 
-                    <!-- FILTROS -->
+                    <!-- FILTROS Y BÚSQUEDA -->
 
                     <div class="card border-0 shadow-sm mb-4">
                         <div class="card-body">
@@ -198,9 +186,7 @@
                             <div class="row g-3">
 
                                 <div class="col-12 col-lg-5">
-
                                     <div class="input-group">
-
                                         <span class="input-group-text">
                                             <i class="bi bi-search"></i>
                                         </span>
@@ -208,14 +194,11 @@
                                         <input type="search"
                                                class="form-control"
                                                id="plansSearch"
-                                               placeholder="Buscar planes...">
-
+                                               placeholder="Buscar por nombre, ubicación...">
                                     </div>
-
                                 </div>
 
                                 <div class="col-6 col-lg-3">
-
                                     <select class="form-select"
                                             id="plansCategoryFilter">
 
@@ -230,11 +213,9 @@
                                         `).join("")}
 
                                     </select>
-
                                 </div>
 
                                 <div class="col-6 col-lg-3">
-
                                     <select class="form-select"
                                             id="plansStatusFilter">
 
@@ -249,18 +230,59 @@
                                         `).join("")}
 
                                     </select>
-
                                 </div>
 
                                 <div class="col-12 col-lg-1">
-
                                     <button class="btn btn-outline-secondary w-100"
                                             id="clearPlansFilters"
                                             title="Limpiar filtros">
-
                                         <i class="bi bi-arrow-counterclockwise"></i>
-
                                     </button>
+                                </div>
+
+                                <div class="col-12 col-md-6">
+                                    <label for="plansSort"
+                                           class="form-label small text-secondary mb-1">
+                                        Ordenar por
+                                    </label>
+
+                                    <select class="form-select"
+                                            id="plansSort">
+
+                                        <option value="date">
+                                            Fecha del plan
+                                        </option>
+
+                                        <option value="date-desc">
+                                            Fecha del plan (más recientes)
+                                        </option>
+
+                                        <option value="created">
+                                            Fecha de creación
+                                        </option>
+
+                                        <option value="budget-desc">
+                                            Mayor presupuesto
+                                        </option>
+
+                                        <option value="budget-asc">
+                                            Menor presupuesto
+                                        </option>
+
+                                        <option value="name">
+                                            Nombre (A-Z)
+                                        </option>
+
+                                    </select>
+                                </div>
+
+                                <div class="col-12 col-md-6 d-flex
+                                            align-items-end justify-content-md-end">
+
+                                    <span class="text-secondary small pb-2"
+                                          id="plansResultsCount">
+                                        0 planes
+                                    </span>
 
                                 </div>
 
@@ -278,11 +300,6 @@
                             Tus experiencias
                         </h5>
 
-                        <span class="text-secondary small"
-                              id="plansResultsCount">
-                            0 planes
-                        </span>
-
                     </div>
 
                     <div class="row g-4" id="plansGrid"></div>
@@ -293,17 +310,6 @@
 
         /* =====================================================
            MODAL
-           Estructura corregida para Bootstrap:
-
-           modal-content
-             └── form.plan-modal-form
-                   ├── modal-header
-                   ├── modal-body
-                   └── modal-footer
-
-           El formulario ocupa el espacio disponible.
-           El cuerpo tiene desplazamiento independiente
-           y el pie permanece visible.
         ===================================================== */
 
         getModalHTML() {
@@ -322,14 +328,12 @@
                             <form id="planForm"
                                   class="plan-modal-form"
                                   style="
-                                      display: flex;
-                                      flex-direction: column;
-                                      flex: 1 1 auto;
-                                      min-height: 0;
-                                      overflow: hidden;
+                                      display:flex;
+                                      flex-direction:column;
+                                      flex:1 1 auto;
+                                      min-height:0;
+                                      overflow:hidden;
                                   ">
-
-                                <!-- CABECERA -->
 
                                 <div class="modal-header">
 
@@ -352,19 +356,16 @@
 
                                 </div>
 
-                                <!-- CONTENIDO DESPLAZABLE -->
-
                                 <div class="modal-body"
                                      style="
-                                         flex: 1 1 auto;
-                                         min-height: 0;
-                                         overflow-y: auto;
+                                         flex:1 1 auto;
+                                         min-height:0;
+                                         overflow-y:auto;
                                      ">
 
                                     <div class="row g-3">
 
                                         <div class="col-12">
-
                                             <label for="planName"
                                                    class="form-label">
                                                 Nombre del plan *
@@ -376,11 +377,9 @@
                                                    maxlength="100"
                                                    placeholder="Ej. Cena con amigos"
                                                    required>
-
                                         </div>
 
                                         <div class="col-md-6">
-
                                             <label for="planCategory"
                                                    class="form-label">
                                                 Categoría *
@@ -401,11 +400,9 @@
                                                 `).join("")}
 
                                             </select>
-
                                         </div>
 
                                         <div class="col-md-6">
-
                                             <label for="planStatus"
                                                    class="form-label">
                                                 Estado
@@ -421,11 +418,9 @@
                                                 `).join("")}
 
                                             </select>
-
                                         </div>
 
                                         <div class="col-md-6">
-
                                             <label for="planDate"
                                                    class="form-label">
                                                 Fecha
@@ -434,11 +429,9 @@
                                             <input type="date"
                                                    class="form-control"
                                                    id="planDate">
-
                                         </div>
 
                                         <div class="col-md-6">
-
                                             <label for="planTime"
                                                    class="form-label">
                                                 Hora
@@ -447,11 +440,9 @@
                                             <input type="time"
                                                    class="form-control"
                                                    id="planTime">
-
                                         </div>
 
                                         <div class="col-md-6">
-
                                             <label for="planLocation"
                                                    class="form-label">
                                                 Ubicación
@@ -462,11 +453,9 @@
                                                    id="planLocation"
                                                    maxlength="150"
                                                    placeholder="¿Dónde tendrá lugar?">
-
                                         </div>
 
                                         <div class="col-md-6">
-
                                             <label for="planMapsUrl"
                                                    class="form-label">
                                                 Enlace de ubicación
@@ -476,11 +465,9 @@
                                                    class="form-control"
                                                    id="planMapsUrl"
                                                    placeholder="https://maps.google.com/...">
-
                                         </div>
 
                                         <div class="col-md-6">
-
                                             <label for="planBudget"
                                                    class="form-label">
                                                 Presupuesto estimado (€)
@@ -492,11 +479,9 @@
                                                    min="0"
                                                    step="0.01"
                                                    placeholder="0,00">
-
                                         </div>
 
                                         <div class="col-md-6">
-
                                             <label for="planDuration"
                                                    class="form-label">
                                                 Duración aproximada
@@ -507,11 +492,9 @@
                                                    id="planDuration"
                                                    maxlength="60"
                                                    placeholder="Ej. 2 horas">
-
                                         </div>
 
                                         <div class="col-12">
-
                                             <label for="planParticipants"
                                                    class="form-label">
                                                 Participantes
@@ -525,11 +508,9 @@
                                             <div class="form-text">
                                                 Separa los participantes mediante comas.
                                             </div>
-
                                         </div>
 
                                         <div class="col-12">
-
                                             <label for="planDescription"
                                                    class="form-label">
                                                 Descripción
@@ -540,11 +521,9 @@
                                                       rows="3"
                                                       maxlength="1000"
                                                       placeholder="Cuéntanos un poco más sobre el plan..."></textarea>
-
                                         </div>
 
                                         <div class="col-12">
-
                                             <label for="planNotes"
                                                    class="form-label">
                                                 Notas adicionales
@@ -554,13 +533,9 @@
                                                       id="planNotes"
                                                       rows="2"
                                                       placeholder="Detalles que quieras recordar..."></textarea>
-
                                         </div>
 
-                                        <!-- IMAGEN DE PORTADA -->
-
                                         <div class="col-12">
-
                                             <label for="planImage"
                                                    class="form-label">
                                                 Imagen de portada
@@ -579,17 +554,14 @@
                                             <div id="planImagePreview"
                                                  class="mt-3">
                                             </div>
-
                                         </div>
 
                                     </div>
 
                                 </div>
 
-                                <!-- PIE FIJO -->
-
                                 <div class="modal-footer"
-                                     style="flex-shrink: 0;">
+                                     style="flex-shrink:0;">
 
                                     <button type="button"
                                             class="btn btn-outline-secondary"
@@ -679,6 +651,26 @@
                     return;
                 }
 
+                const duplicateButton =
+                    event.target.closest("[data-duplicate-plan]");
+
+                if (duplicateButton) {
+                    await this.duplicatePlan(
+                        duplicateButton.dataset.duplicatePlan
+                    );
+                    return;
+                }
+
+                const cancelButton =
+                    event.target.closest("[data-cancel-plan]");
+
+                if (cancelButton) {
+                    await this.cancelPlan(
+                        cancelButton.dataset.cancelPlan
+                    );
+                    return;
+                }
+
                 const clearButton =
                     event.target.closest("#clearPlansFilters");
 
@@ -687,8 +679,6 @@
                 }
 
             });
-
-            // Buscador
 
             this.container.addEventListener("input", event => {
 
@@ -700,8 +690,6 @@
                 }
 
             });
-
-            // Filtros
 
             this.container.addEventListener("change", event => {
 
@@ -719,9 +707,14 @@
                     this.renderPlans();
                 }
 
-            });
+                if (event.target.id === "plansSort") {
+                    this.currentFilters.sort =
+                        event.target.value;
 
-            // Envío del formulario
+                    this.renderPlans();
+                }
+
+            });
 
             this.modal.addEventListener("submit", async event => {
 
@@ -731,8 +724,6 @@
                 }
 
             });
-
-            // Selección de imagen
 
             this.modal.addEventListener("change", event => {
 
@@ -744,8 +735,6 @@
 
             });
 
-            // Eliminar imagen seleccionada
-
             this.modal.addEventListener("click", event => {
 
                 if (event.target.closest("#removePlanImage")) {
@@ -754,14 +743,10 @@
 
             });
 
-            // Limpieza al cerrar el modal
-
             this.modal.addEventListener("hidden.bs.modal", () => {
                 this.selectedImage = null;
                 this.revokePreviewURL();
             });
-
-            // Actualizar al entrar en Mis planes
 
             document.addEventListener("planea:viewChanged", event => {
 
@@ -770,8 +755,6 @@
                 }
 
             });
-
-            // Actualizar cuando cambien los datos
 
             document.addEventListener("planea:dataChanged", () => {
                 this.renderPlans();
@@ -801,7 +784,10 @@
                         plan.name,
                         plan.category,
                         plan.description,
-                        plan.location
+                        plan.location,
+                        plan.notes,
+                        plan.duration,
+                        plan.status
                     ].join(" ").toLowerCase();
 
                     return searchableText.includes(search);
@@ -820,15 +806,61 @@
                 );
             }
 
+            return this.sortPlans(plans);
+        },
+
+        sortPlans(plans) {
+
+            const sort = this.currentFilters.sort;
+
             return plans.sort((a, b) => {
 
-                const dateA = a.date || "9999-99-99";
-                const dateB = b.date || "9999-99-99";
+                switch (sort) {
 
-                return dateA.localeCompare(dateB);
+                    case "date":
+                        return (
+                            (a.date || "9999-99-99").localeCompare(
+                                b.date || "9999-99-99"
+                            )
+                        );
+
+                    case "date-desc":
+                        return (
+                            (b.date || "").localeCompare(
+                                a.date || ""
+                            )
+                        );
+
+                    case "created":
+                        return (
+                            new Date(b.createdAt || 0) -
+                            new Date(a.createdAt || 0)
+                        );
+
+                    case "budget-desc":
+                        return (
+                            Number(b.estimatedBudget || 0) -
+                            Number(a.estimatedBudget || 0)
+                        );
+
+                    case "budget-asc":
+                        return (
+                            Number(a.estimatedBudget || 0) -
+                            Number(b.estimatedBudget || 0)
+                        );
+
+                    case "name":
+                        return (a.name || "").localeCompare(
+                            b.name || "",
+                            "es",
+                            { sensitivity: "base" }
+                        );
+
+                    default:
+                        return 0;
+                }
 
             });
-
         },
 
         /* =====================================================
@@ -838,6 +870,8 @@
         async renderPlans() {
 
             if (!this.container) return;
+
+            const token = ++this.renderToken;
 
             const plans = this.getPlans();
             const filteredPlans = this.getFilteredPlans();
@@ -852,8 +886,10 @@
 
             if (!grid) return;
 
-            results.textContent =
-                `${filteredPlans.length} ${filteredPlans.length === 1 ? "plan" : "planes"}`;
+            if (results) {
+                results.textContent =
+                    `${filteredPlans.length} ${filteredPlans.length === 1 ? "plan" : "planes"}`;
+            }
 
             if (filteredPlans.length === 0) {
 
@@ -864,7 +900,6 @@
 
                 grid.innerHTML = `
                     <div class="col-12">
-
                         <div class="text-center py-5">
 
                             <div class="mb-3">
@@ -889,7 +924,6 @@
                             </p>
 
                         </div>
-
                     </div>
                 `;
 
@@ -902,8 +936,10 @@
                 )
             );
 
-            grid.innerHTML = cards.join("");
+            // Evita que un renderizado antiguo sobrescriba uno nuevo.
+            if (token !== this.renderToken) return;
 
+            grid.innerHTML = cards.join("");
         },
 
         updateStatistics(plans) {
@@ -928,7 +964,6 @@
             this.setText("plansPendingCount", counts.pending);
             this.setText("plansConfirmedCount", counts.confirmed);
             this.setText("plansCompletedCount", counts.completed);
-
         },
 
         async createPlanCard(plan) {
@@ -946,16 +981,16 @@
             `;
 
             if (plan.imageId) {
-
                 try {
                     const imageURL =
                         await IMAGES.getImageURL(plan.imageId);
 
                     if (imageURL) {
                         imageHTML = `
-                            <img src="${imageURL}"
+                            <img src="${this.escapeHTML(imageURL)}"
                                  class="w-100"
                                  alt="${this.escapeHTML(plan.name)}"
+                                 loading="lazy"
                                  style="height:190px;object-fit:cover;">
                         `;
                     }
@@ -966,16 +1001,21 @@
                         error
                     );
                 }
-
             }
 
+            const status = plan.status || "Pendiente";
+
             const statusClass =
-                this.statusClasses[plan.status] || "secondary";
+                this.statusClasses[status] || "secondary";
+
+            const isCancelled = status === "Cancelado";
+            const isCompleted = status === "Realizado";
 
             return `
                 <div class="col-12 col-md-6 col-xl-4">
 
-                    <article class="card h-100 border-0 shadow-sm overflow-hidden">
+                    <article class="card h-100 border-0 shadow-sm
+                                    overflow-hidden plan-card">
 
                         <div class="position-relative">
 
@@ -984,9 +1024,7 @@
                             <span class="badge bg-${statusClass}
                                          position-absolute top-0 end-0 m-3">
 
-                                ${this.escapeHTML(
-                                    plan.status || "Pendiente"
-                                )}
+                                ${this.escapeHTML(status)}
 
                             </span>
 
@@ -994,22 +1032,39 @@
 
                         <div class="card-body d-flex flex-column">
 
-                            <div class="d-flex align-items-center gap-2 mb-2">
+                            <div class="d-flex align-items-center
+                                        justify-content-between mb-2">
 
-                                <i class="bi ${this.categoryIcons[plan.category] || "bi-stars"}
-                                          text-success"></i>
+                                <div class="d-flex align-items-center gap-2">
 
-                                <span class="small text-secondary">
-                                    ${this.escapeHTML(plan.category || "Otros")}
-                                </span>
+                                    <i class="bi ${this.categoryIcons[plan.category] || "bi-stars"}
+                                              text-success"></i>
+
+                                    <span class="small text-secondary">
+                                        ${this.escapeHTML(plan.category || "Otros")}
+                                    </span>
+
+                                </div>
+
+                                ${plan.date ? `
+                                    <span class="small text-secondary">
+                                        ${this.formatShortDate(plan.date)}
+                                    </span>
+                                ` : ""}
 
                             </div>
 
                             <h5 class="fw-bold mb-2">
-                                ${this.escapeHTML(plan.name)}
+                                ${this.escapeHTML(plan.name || "Plan sin nombre")}
                             </h5>
 
-                            <p class="text-secondary small mb-3">
+                            <p class="text-secondary small mb-3"
+                               style="
+                                   display:-webkit-box;
+                                   -webkit-line-clamp:2;
+                                   -webkit-box-orient:vertical;
+                                   overflow:hidden;
+                               ">
                                 ${this.escapeHTML(
                                     plan.description ||
                                     "Sin descripción adicional."
@@ -1058,24 +1113,63 @@
 
                             </div>
 
-                            <div class="mt-auto pt-3 border-top
-                                        d-flex justify-content-between gap-2">
+                            <div class="mt-auto pt-3 border-top">
 
-                                <button class="btn btn-sm btn-outline-secondary flex-fill"
-                                        data-edit-plan="${this.escapeHTML(plan.id)}">
+                                <div class="d-flex gap-2 mb-2">
 
-                                    <i class="bi bi-pencil me-1"></i>
-                                    Editar
+                                    <button class="btn btn-sm btn-outline-secondary
+                                                   flex-fill"
+                                            data-edit-plan="${this.escapeHTML(plan.id)}">
 
-                                </button>
+                                        <i class="bi bi-pencil me-1"></i>
+                                        Editar
 
-                                <button class="btn btn-sm btn-outline-danger"
-                                        data-delete-plan="${this.escapeHTML(plan.id)}"
-                                        aria-label="Eliminar plan">
+                                    </button>
 
-                                    <i class="bi bi-trash"></i>
+                                    <button class="btn btn-sm btn-outline-secondary"
+                                            data-duplicate-plan="${this.escapeHTML(plan.id)}"
+                                            title="Duplicar plan"
+                                            aria-label="Duplicar plan">
 
-                                </button>
+                                        <i class="bi bi-copy"></i>
+
+                                    </button>
+
+                                    <button class="btn btn-sm btn-outline-danger"
+                                            data-delete-plan="${this.escapeHTML(plan.id)}"
+                                            title="Eliminar plan"
+                                            aria-label="Eliminar plan">
+
+                                        <i class="bi bi-trash"></i>
+
+                                    </button>
+
+                                </div>
+
+                                ${!isCancelled && !isCompleted ? `
+                                    <button class="btn btn-sm btn-light w-100
+                                                   text-secondary"
+                                            data-cancel-plan="${this.escapeHTML(plan.id)}">
+
+                                        <i class="bi bi-x-circle me-1"></i>
+                                        Cancelar plan
+
+                                    </button>
+                                ` : ""}
+
+                                ${isCancelled ? `
+                                    <div class="small text-secondary text-center">
+                                        <i class="bi bi-info-circle me-1"></i>
+                                        Este plan está cancelado.
+                                    </div>
+                                ` : ""}
+
+                                ${isCompleted ? `
+                                    <div class="small text-success text-center">
+                                        <i class="bi bi-check-circle me-1"></i>
+                                        Experiencia realizada.
+                                    </div>
+                                ` : ""}
 
                             </div>
 
@@ -1085,7 +1179,6 @@
 
                 </div>
             `;
-
         },
 
         /* =====================================================
@@ -1112,9 +1205,7 @@
                 '<i class="bi bi-check-lg me-2"></i>Guardar plan';
 
             this.renderImagePreview(null);
-
             this.showModal();
-
         },
 
         /* =====================================================
@@ -1168,7 +1259,6 @@
             await this.loadExistingImage(plan.imageId);
 
             this.showModal();
-
         },
 
         /* =====================================================
@@ -1203,9 +1293,28 @@
                 return;
             }
 
+            const mapsUrl = this.getInputValue("planMapsUrl");
+
+            if (mapsUrl) {
+                try {
+                    const parsedURL = new URL(mapsUrl);
+
+                    if (!["http:", "https:"].includes(parsedURL.protocol)) {
+                        throw new Error();
+                    }
+
+                } catch {
+                    this.showToast(
+                        "Introduce un enlace de ubicación válido.",
+                        "warning"
+                    );
+                    return;
+                }
+            }
+
             const participants = this.getInputValue("planParticipants")
                 .split(",")
-                .map(name => name.trim())
+                .map(value => value.trim())
                 .filter(Boolean);
 
             const existingPlan = this.editingId
@@ -1222,8 +1331,6 @@
 
             try {
 
-                // Guardar una nueva imagen si se ha seleccionado
-
                 if (this.selectedImage) {
 
                     const validation =
@@ -1237,7 +1344,6 @@
                         this.selectedImage,
                         imageId
                     );
-
                 }
 
                 const plan = {
@@ -1256,7 +1362,7 @@
                     time: this.getInputValue("planTime"),
 
                     location: this.getInputValue("planLocation"),
-                    mapsUrl: this.getInputValue("planMapsUrl"),
+                    mapsUrl,
 
                     estimatedBudget: budget,
                     duration: this.getInputValue("planDuration"),
@@ -1277,7 +1383,6 @@
                         new Date().toISOString(),
 
                     updatedAt: new Date().toISOString()
-
                 };
 
                 const plans = this.getPlans();
@@ -1315,10 +1420,7 @@
                         `Has creado el plan "${name}".`,
                         plan.id
                     );
-
                 }
-
-                // Eliminar la imagen antigua si ha sido sustituida
 
                 if (
                     oldImageId &&
@@ -1335,12 +1437,10 @@
 
                 await this.renderPlans();
 
-                if (window.PLANEA_APP?.notifyDataChanged) {
-                    window.PLANEA_APP.notifyDataChanged({
-                        type: "plan_saved",
-                        planId: plan.id
-                    });
-                }
+                this.notifyDataChanged({
+                    type: "plan_saved",
+                    planId: plan.id
+                });
 
                 this.showToast(
                     "Plan guardado correctamente.",
@@ -1361,11 +1461,166 @@
                 );
 
             } finally {
-
                 saveButton.disabled = false;
+            }
+        },
 
+        /* =====================================================
+           DUPLICAR PLAN
+        ===================================================== */
+
+        async duplicatePlan(id) {
+
+            const original = STORAGE.getPlanById(id);
+
+            if (!original) {
+                this.showToast(
+                    "No se ha encontrado el plan.",
+                    "danger"
+                );
+                return;
             }
 
+            const confirmed = window.confirm(
+                `¿Quieres crear una copia de "${original.name}"?`
+            );
+
+            if (!confirmed) return;
+
+            try {
+
+                const now = new Date().toISOString();
+
+                const duplicatedPlan = {
+                    ...original,
+
+                    id: STORAGE.generateId(),
+
+                    name: `${original.name} (copia)`,
+
+                    status: "Pendiente",
+
+                    expenses: [],
+
+                    createdAt: now,
+                    updatedAt: now
+                };
+
+                const plans = this.getPlans();
+
+                plans.push(duplicatedPlan);
+
+                STORAGE.savePlans(plans);
+
+                STORAGE.addActivity(
+                    "plan_created",
+                    `Has duplicado el plan "${original.name}".`,
+                    duplicatedPlan.id
+                );
+
+                await this.renderPlans();
+
+                this.notifyDataChanged({
+                    type: "plan_duplicated",
+                    planId: duplicatedPlan.id
+                });
+
+                this.showToast(
+                    "Plan duplicado correctamente.",
+                    "success"
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "PLANEA: error duplicando el plan.",
+                    error
+                );
+
+                this.showToast(
+                    "No se ha podido duplicar el plan.",
+                    "danger"
+                );
+            }
+        },
+
+        /* =====================================================
+           CANCELAR PLAN
+        ===================================================== */
+
+        async cancelPlan(id) {
+
+            const plan = STORAGE.getPlanById(id);
+
+            if (!plan) {
+                this.showToast(
+                    "No se ha encontrado el plan.",
+                    "danger"
+                );
+                return;
+            }
+
+            if (
+                plan.status === "Cancelado" ||
+                plan.status === "Realizado"
+            ) {
+                return;
+            }
+
+            const confirmed = window.confirm(
+                `¿Quieres cancelar el plan "${plan.name}"?\n\nPodrás volver a modificar su estado desde Editar.`
+            );
+
+            if (!confirmed) return;
+
+            try {
+
+                const plans = this.getPlans();
+
+                const index = plans.findIndex(
+                    item => item.id === id
+                );
+
+                if (index === -1) return;
+
+                plans[index] = {
+                    ...plans[index],
+                    status: "Cancelado",
+                    updatedAt: new Date().toISOString()
+                };
+
+                STORAGE.savePlans(plans);
+
+                STORAGE.addActivity(
+                    "plan_cancelled",
+                    `Has cancelado el plan "${plan.name}".`,
+                    id
+                );
+
+                await this.renderPlans();
+
+                this.notifyDataChanged({
+                    type: "plan_cancelled",
+                    planId: id
+                });
+
+                this.showToast(
+                    "Plan cancelado correctamente.",
+                    "success"
+                );
+
+            } catch (error) {
+
+                console.error(
+                    "PLANEA: error cancelando el plan.",
+                    error
+                );
+
+                this.showToast(
+                    "No se ha podido cancelar el plan.",
+                    "danger"
+                );
+            }
         },
 
         /* =====================================================
@@ -1404,12 +1659,10 @@
 
                 await this.renderPlans();
 
-                if (window.PLANEA_APP?.notifyDataChanged) {
-                    window.PLANEA_APP.notifyDataChanged({
-                        type: "plan_deleted",
-                        planId: id
-                    });
-                }
+                this.notifyDataChanged({
+                    type: "plan_deleted",
+                    planId: id
+                });
 
                 this.showToast(
                     "Plan eliminado correctamente.",
@@ -1427,9 +1680,7 @@
                     "No se ha podido eliminar el plan.",
                     "danger"
                 );
-
             }
-
         },
 
         /* =====================================================
@@ -1451,7 +1702,6 @@
 
                 document.getElementById("planImage").value = "";
                 return;
-
             }
 
             this.selectedImage = file;
@@ -1463,7 +1713,6 @@
                 URL.createObjectURL(file);
 
             this.renderImagePreview(this.previewObjectURL);
-
         },
 
         async loadExistingImage(imageId) {
@@ -1487,9 +1736,7 @@
                 );
 
                 this.renderImagePreview(null);
-
             }
-
         },
 
         renderImagePreview(url) {
@@ -1508,14 +1755,13 @@
                 `;
 
                 return;
-
             }
 
             preview.innerHTML = `
                 <div class="position-relative"
                      style="max-width:320px;">
 
-                    <img src="${url}"
+                    <img src="${this.escapeHTML(url)}"
                          alt="Vista previa de la portada"
                          class="img-fluid rounded-3"
                          style="width:100%;
@@ -1534,7 +1780,6 @@
 
                 </div>
             `;
-
         },
 
         removeSelectedImage() {
@@ -1551,7 +1796,6 @@
 
             this.revokePreviewURL();
             this.renderImagePreview(null);
-
         },
 
         revokePreviewURL() {
@@ -1560,7 +1804,6 @@
                 URL.revokeObjectURL(this.previewObjectURL);
                 this.previewObjectURL = null;
             }
-
         },
 
         /* =====================================================
@@ -1572,15 +1815,37 @@
             this.currentFilters = {
                 search: "",
                 category: "all",
-                status: "all"
+                status: "all",
+                sort: "date"
             };
 
             this.setInputValue("plansSearch", "");
             this.setInputValue("plansCategoryFilter", "all");
             this.setInputValue("plansStatusFilter", "all");
+            this.setInputValue("plansSort", "date");
 
             this.renderPlans();
+        },
 
+        /* =====================================================
+           ACTUALIZACIÓN GLOBAL
+        ===================================================== */
+
+        notifyDataChanged(detail = {}) {
+
+            if (window.PLANEA_APP?.notifyDataChanged) {
+                window.PLANEA_APP.notifyDataChanged(detail);
+                return;
+            }
+
+            document.dispatchEvent(
+                new CustomEvent("planea:dataChanged", {
+                    detail: {
+                        source: "plans",
+                        ...detail
+                    }
+                })
+            );
         },
 
         /* =====================================================
@@ -1603,7 +1868,6 @@
                 );
 
             this.modalInstance.show();
-
         },
 
         hideModal() {
@@ -1611,7 +1875,6 @@
             if (this.modalInstance) {
                 this.modalInstance.hide();
             }
-
         },
 
         showToast(message, type = "success") {
@@ -1622,7 +1885,6 @@
             }
 
             console.log(`[PLANEA] ${message}`);
-
         },
 
         setText(id, value) {
@@ -1632,7 +1894,6 @@
             if (element) {
                 element.textContent = value;
             }
-
         },
 
         setInputValue(id, value) {
@@ -1642,7 +1903,6 @@
             if (element) {
                 element.value = value ?? "";
             }
-
         },
 
         getInputValue(id) {
@@ -1651,7 +1911,6 @@
                 .getElementById(id)
                 ?.value
                 ?.trim() || "";
-
         },
 
         formatDate(date) {
@@ -1669,7 +1928,22 @@
                 month: "long",
                 year: "numeric"
             });
+        },
 
+        formatShortDate(date) {
+
+            if (!date) return "";
+
+            const parsed = new Date(`${date}T00:00:00`);
+
+            if (Number.isNaN(parsed.getTime())) {
+                return date;
+            }
+
+            return parsed.toLocaleDateString("es-ES", {
+                day: "numeric",
+                month: "short"
+            });
         },
 
         formatCurrency(amount) {
@@ -1677,8 +1951,7 @@
             return new Intl.NumberFormat("es-ES", {
                 style: "currency",
                 currency: "EUR"
-            }).format(amount);
-
+            }).format(Number(amount) || 0);
         },
 
         escapeHTML(value) {
@@ -1693,12 +1966,13 @@
                     "'": "&#039;"
                 })[character]
             );
-
         }
 
     };
 
-    // Exponer módulo
+    /* =====================================================
+       EXPONER MÓDULO
+    ===================================================== */
 
     window.PLANEA_PLANS = MODULE;
 

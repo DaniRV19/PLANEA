@@ -8,6 +8,7 @@
     "use strict";
 
     let initialized = false;
+    let eventsBound = false;
     let selectedParticipantId = null;
 
     const STORAGE = () => window.PLANEA_STORAGE;
@@ -32,6 +33,14 @@
             Math.random().toString(36).slice(2, 9);
     }
 
+    function normalizeText(value) {
+        return String(value ?? "")
+            .trim()
+            .toLocaleLowerCase("es")
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "");
+    }
+
     function getData() {
         const storage = STORAGE();
 
@@ -47,7 +56,8 @@
 
         if (
             !data.planParticipants ||
-            typeof data.planParticipants !== "object"
+            typeof data.planParticipants !== "object" ||
+            Array.isArray(data.planParticipants)
         ) {
             data.planParticipants = {};
         }
@@ -77,39 +87,41 @@
         return STORAGE().getPlans() || [];
     }
 
-    function getPlanAssignments(planId) {
-        const data = getData();
-
-        return data.planParticipants[String(planId)] || [];
-    }
-
     function getParticipantAssignments(participantId) {
         const data = getData();
+        const plans = getPlans();
         const result = [];
 
         Object.entries(data.planParticipants).forEach(
             ([planId, assignments]) => {
 
+                if (!Array.isArray(assignments)) return;
+
                 const assignment = assignments.find(item =>
-                    item.participantId === participantId
+                    String(item.participantId) === String(participantId)
                 );
 
                 if (!assignment) return;
 
-                const plan = getPlans().find(item =>
+                const plan = plans.find(item =>
                     String(item.id) === String(planId)
                 );
 
                 if (plan) {
                     result.push({
                         plan,
-                        status: assignment.status || "Pendiente"
+                        status: assignment.status || "Pendiente",
+                        updatedAt: assignment.updatedAt || null
                     });
                 }
             }
         );
 
-        return result;
+        return result.sort((a, b) =>
+            String(a.plan.date || "").localeCompare(
+                String(b.plan.date || "")
+            )
+        );
     }
 
     function getInitials(name) {
@@ -121,12 +133,44 @@
             .join("");
     }
 
+    function getSafePhoto(photo) {
+        if (typeof photo !== "string" || !photo.trim()) {
+            return null;
+        }
+
+        const source = photo.trim();
+
+        if (
+            /^data:image\/(png|jpeg|jpg|webp|gif);base64,/i.test(source) ||
+            /^https?:\/\//i.test(source)
+        ) {
+            return source;
+        }
+
+        return null;
+    }
+
     function showToast(message, type = "success") {
         if (window.PLANEA_APP?.showToast) {
             window.PLANEA_APP.showToast(message, type);
         } else {
             console.log(`[PLANEA] ${message}`);
         }
+    }
+
+    function getAssignmentStats(assignments) {
+        return {
+            total: assignments.length,
+            confirmed: assignments.filter(item =>
+                item.status === "Confirmado"
+            ).length,
+            pending: assignments.filter(item =>
+                item.status === "Pendiente"
+            ).length,
+            rejected: assignments.filter(item =>
+                item.status === "Rechazado"
+            ).length
+        };
     }
 
     /* =====================================================
@@ -159,9 +203,11 @@
             );
         }
 
-        page.innerHTML = `
-            <div id="participantsModuleContainer"></div>
-        `;
+        if (!page.querySelector("#participantsModuleContainer")) {
+            page.innerHTML = `
+                <div id="participantsModuleContainer"></div>
+            `;
+        }
 
         return page;
     }
@@ -201,7 +247,6 @@
             calendarLink.nextSibling
         );
 
-        // La navegación se gestiona desde este módulo.
         link.addEventListener("click", event => {
             event.preventDefault();
             event.stopPropagation();
@@ -364,8 +409,40 @@
                 color: var(--text-secondary, #94a3b8);
                 font-size: .88rem;
                 min-height: 39px;
-                margin-bottom: 16px;
+                margin-bottom: 12px;
                 overflow-wrap: anywhere;
+            }
+
+            .participant-assignment-summary {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 7px;
+                margin-bottom: 15px;
+            }
+
+            .participant-status {
+                display: inline-flex;
+                align-items: center;
+                gap: 5px;
+                padding: 4px 8px;
+                border-radius: 20px;
+                font-size: .72rem;
+                font-weight: 600;
+            }
+
+            .participant-status.confirmed {
+                background: rgba(22,163,106,.14);
+                color: #42d392;
+            }
+
+            .participant-status.pending {
+                background: rgba(234,179,8,.12);
+                color: #eab308;
+            }
+
+            .participant-status.rejected {
+                background: rgba(239,68,68,.12);
+                color: #f87171;
             }
 
             .participant-card-footer {
@@ -506,6 +583,7 @@
             .participant-assignment-row strong {
                 display: block;
                 font-size: .9rem;
+                overflow-wrap: anywhere;
             }
 
             .participant-assignment-row small {
@@ -514,6 +592,14 @@
 
             .participant-assignment-row select {
                 max-width: 145px;
+                flex-shrink: 0;
+            }
+
+            .participant-plan-cancelled {
+                color: #f87171;
+                font-size: .72rem;
+                margin-top: 3px;
+                display: block;
             }
 
             @media (max-width: 700px) {
@@ -541,6 +627,10 @@
                 .participants-grid {
                     grid-template-columns: 1fr;
                 }
+
+                .participant-assignment-row {
+                    align-items: flex-start;
+                }
             }
         `;
 
@@ -558,72 +648,111 @@
 
         if (!container) return;
 
+        // La estructura se crea una sola vez para no destruir
+        // los modales cada vez que se actualizan los datos.
+        if (container.dataset.initialized !== "true") {
+            container.innerHTML = `
+                <div class="participants-header">
+
+                    <div>
+                        <h2>Participantes</h2>
+                        <p>
+                            Organiza a las personas con las que compartes tus planes.
+                        </p>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="participant-primary-btn"
+                        id="addParticipantButton"
+                    >
+                        <i class="bi bi-person-plus me-2"></i>
+                        Añadir participante
+                    </button>
+
+                </div>
+
+                <div class="participants-summary">
+
+                    <div class="participant-stat">
+                        <span>Personas registradas</span>
+                        <strong id="participantsTotal">0</strong>
+                    </div>
+
+                    <div class="participant-stat">
+                        <span>Planes disponibles</span>
+                        <strong id="participantsPlansTotal">0</strong>
+                    </div>
+
+                    <div class="participant-stat">
+                        <span>Participaciones asignadas</span>
+                        <strong id="participantsAssignmentsTotal">0</strong>
+                    </div>
+
+                </div>
+
+                <div class="participants-toolbar">
+
+                    <input
+                        type="search"
+                        class="participants-search"
+                        id="participantsSearch"
+                        placeholder="Buscar por nombre o teléfono..."
+                        aria-label="Buscar participantes"
+                    >
+
+                </div>
+
+                <div class="participants-grid" id="participantsGrid"></div>
+
+                ${renderModals()}
+            `;
+
+            container.dataset.initialized = "true";
+        }
+
+        updateSummary();
+
+        renderParticipants(
+            document.getElementById("participantsSearch")?.value || ""
+        );
+
+        bindEvents();
+    }
+
+    function updateSummary() {
         const participants = getParticipants();
         const plans = getPlans();
 
         const totalAssignments = Object.values(
             getData().planParticipants
-        ).reduce((total, list) => total + list.length, 0);
+        ).reduce((total, list) => {
+            return total + (Array.isArray(list) ? list.length : 0);
+        }, 0);
 
-        container.innerHTML = `
-            <div class="participants-header">
+        const totalElement = document.getElementById(
+            "participantsTotal"
+        );
 
-                <div>
-                    <h2>Participantes</h2>
-                    <p>
-                        Organiza a las personas con las que compartes tus planes.
-                    </p>
-                </div>
+        const plansElement = document.getElementById(
+            "participantsPlansTotal"
+        );
 
-                <button
-                    type="button"
-                    class="participant-primary-btn"
-                    id="addParticipantButton"
-                >
-                    <i class="bi bi-person-plus me-2"></i>
-                    Añadir participante
-                </button>
+        const assignmentsElement = document.getElementById(
+            "participantsAssignmentsTotal"
+        );
 
-            </div>
+        if (totalElement) {
+            totalElement.textContent = participants.length;
+        }
 
-            <div class="participants-summary">
+        if (plansElement) {
+            plansElement.textContent = plans.length;
+        }
 
-                <div class="participant-stat">
-                    <span>Personas registradas</span>
-                    <strong>${participants.length}</strong>
-                </div>
-
-                <div class="participant-stat">
-                    <span>Planes disponibles</span>
-                    <strong>${plans.length}</strong>
-                </div>
-
-                <div class="participant-stat">
-                    <span>Participaciones asignadas</span>
-                    <strong>${totalAssignments}</strong>
-                </div>
-
-            </div>
-
-            <div class="participants-toolbar">
-
-                <input
-                    type="search"
-                    class="participants-search"
-                    id="participantsSearch"
-                    placeholder="Buscar por nombre o teléfono..."
-                    aria-label="Buscar participantes"
-                >
-
-            </div>
-
-            <div class="participants-grid" id="participantsGrid"></div>
-
-            ${renderModals()}
-        `;
-
-        renderParticipants();
-        bindEvents();
+        if (assignmentsElement) {
+            assignmentsElement.textContent = totalAssignments;
+        }
     }
 
     function renderModals() {
@@ -829,21 +958,24 @@
 
         if (!grid) return;
 
-        const normalizedSearch = search.trim().toLowerCase();
+        const normalizedSearch = normalizeText(search);
 
         const participants = getParticipants()
             .filter(person => {
+                const name = normalizeText(person.name);
+                const phone = normalizeText(person.phone);
+
                 return (
-                    String(person.name || "")
-                        .toLowerCase()
-                        .includes(normalizedSearch) ||
-                    String(person.phone || "")
-                        .toLowerCase()
-                        .includes(normalizedSearch)
+                    name.includes(normalizedSearch) ||
+                    phone.includes(normalizedSearch)
                 );
             })
             .sort((a, b) =>
-                a.name.localeCompare(b.name, "es")
+                String(a.name || "").localeCompare(
+                    String(b.name || ""),
+                    "es",
+                    { sensitivity: "base" }
+                )
             );
 
         if (participants.length === 0) {
@@ -853,13 +985,13 @@
                     <i class="bi bi-people"></i>
 
                     <h3>
-                        ${search
+                        ${normalizedSearch
                             ? "No se han encontrado participantes"
                             : "Todavía no tienes participantes"}
                     </h3>
 
                     <p>
-                        ${search
+                        ${normalizedSearch
                             ? "Prueba con otro término de búsqueda."
                             : "Añade a tus amigos para empezar a organizar planes juntos."}
                     </p>
@@ -872,11 +1004,13 @@
 
         grid.innerHTML = participants.map(person => {
             const assignments = getParticipantAssignments(person.id);
+            const stats = getAssignmentStats(assignments);
+            const safePhoto = getSafePhoto(person.photo);
 
-            const avatar = person.photo
+            const avatar = safePhoto
                 ? `
                     <img
-                        src="${escapeHTML(person.photo)}"
+                        src="${escapeHTML(safePhoto)}"
                         alt="${escapeHTML(person.name)}"
                     >
                 `
@@ -909,6 +1043,31 @@
                         )}
                     </p>
 
+                    <div class="participant-assignment-summary">
+
+                        ${stats.confirmed > 0 ? `
+                            <span class="participant-status confirmed">
+                                <i class="bi bi-check-circle"></i>
+                                ${stats.confirmed} confirmados
+                            </span>
+                        ` : ""}
+
+                        ${stats.pending > 0 ? `
+                            <span class="participant-status pending">
+                                <i class="bi bi-clock"></i>
+                                ${stats.pending} pendientes
+                            </span>
+                        ` : ""}
+
+                        ${stats.rejected > 0 ? `
+                            <span class="participant-status rejected">
+                                <i class="bi bi-x-circle"></i>
+                                ${stats.rejected} rechazados
+                            </span>
+                        ` : ""}
+
+                    </div>
+
                     <div class="participant-card-footer">
 
                         <span class="participant-plan-count">
@@ -925,6 +1084,7 @@
                                 data-action="assign"
                                 data-id="${escapeHTML(person.id)}"
                                 title="Gestionar planes"
+                                aria-label="Gestionar planes de ${escapeHTML(person.name)}"
                             >
                                 <i class="bi bi-calendar-plus"></i>
                             </button>
@@ -935,6 +1095,7 @@
                                 data-action="edit"
                                 data-id="${escapeHTML(person.id)}"
                                 title="Editar participante"
+                                aria-label="Editar ${escapeHTML(person.name)}"
                             >
                                 <i class="bi bi-pencil"></i>
                             </button>
@@ -945,6 +1106,7 @@
                                 data-action="delete"
                                 data-id="${escapeHTML(person.id)}"
                                 title="Eliminar participante"
+                                aria-label="Eliminar ${escapeHTML(person.name)}"
                             >
                                 <i class="bi bi-trash"></i>
                             </button>
@@ -970,6 +1132,7 @@
         form.reset();
 
         document.getElementById("participantId").value = "";
+
         document.getElementById("participantModalTitle").textContent =
             participantId ? "Editar participante" : "Nuevo participante";
 
@@ -977,19 +1140,25 @@
 
         if (participantId) {
             const person = getParticipants().find(item =>
-                item.id === participantId
+                String(item.id) === String(participantId)
             );
 
             if (!person) return;
 
             document.getElementById("participantId").value = person.id;
-            document.getElementById("participantName").value = person.name || "";
-            document.getElementById("participantPhone").value = person.phone || "";
+            document.getElementById("participantName").value =
+                person.name || "";
+
+            document.getElementById("participantPhone").value =
+                person.phone || "";
+
             document.getElementById("participantDescription").value =
                 person.description || "";
 
-            if (person.photo) {
-                showPhotoPreview(person.photo);
+            const safePhoto = getSafePhoto(person.photo);
+
+            if (safePhoto) {
+                showPhotoPreview(safePhoto);
             }
         }
 
@@ -1026,6 +1195,8 @@
             "removeParticipantPhoto"
         );
 
+        if (!preview || !removeButton) return;
+
         preview.src = source;
         preview.style.display = "block";
         removeButton.classList.remove("d-none");
@@ -1038,7 +1209,6 @@
             throw new Error("El archivo seleccionado no es una imagen.");
         }
 
-        // Evitar fotografías excesivamente grandes en localStorage.
         if (file.size > 2 * 1024 * 1024) {
             throw new Error(
                 "La fotografía no puede superar los 2 MB."
@@ -1049,6 +1219,7 @@
             const reader = new FileReader();
 
             reader.onload = () => resolve(reader.result);
+
             reader.onerror = () => reject(
                 new Error("No se ha podido leer la fotografía.")
             );
@@ -1061,6 +1232,7 @@
         event.preventDefault();
 
         const id = document.getElementById("participantId").value;
+
         const name = document.getElementById("participantName")
             .value.trim();
 
@@ -1081,12 +1253,16 @@
         const data = getData();
 
         const existing = id
-            ? data.participants.find(person => person.id === id)
+            ? data.participants.find(person =>
+                String(person.id) === String(id)
+            )
             : null;
 
+        const normalizedName = normalizeText(name);
+
         const duplicate = data.participants.find(person =>
-            person.id !== id &&
-            person.name.trim().toLowerCase() === name.toLowerCase()
+            String(person.id) !== String(id) &&
+            normalizeText(person.name) === normalizedName
         );
 
         if (duplicate) {
@@ -1108,9 +1284,13 @@
             return;
         }
 
+        const preview = document.getElementById(
+            "participantPhotoPreview"
+        );
+
+        // Si se ha quitado la fotografía, se elimina también del registro.
         if (
-            document.getElementById("participantPhotoPreview").style.display
-            === "none" &&
+            preview?.style.display === "none" &&
             !photoInput.files[0]
         ) {
             photo = null;
@@ -1126,8 +1306,8 @@
         };
 
         if (existing) {
-            const index = data.participants.findIndex(
-                person => person.id === id
+            const index = data.participants.findIndex(person =>
+                String(person.id) === String(id)
             );
 
             data.participants[index] = {
@@ -1139,10 +1319,21 @@
             data.participants.push(participant);
         }
 
-        saveData(data, {
-            action: existing ? "participant_updated" : "participant_created",
-            participantId: participant.id
-        });
+        try {
+            saveData(data, {
+                action: existing
+                    ? "participant_updated"
+                    : "participant_created",
+                participantId: participant.id
+            });
+        } catch (error) {
+            console.error("PLANEA: error al guardar participante.", error);
+            showToast(
+                "No se ha podido guardar el participante. Comprueba el espacio disponible.",
+                "danger"
+            );
+            return;
+        }
 
         bootstrap.Modal.getInstance(
             document.getElementById("participantModal")
@@ -1163,7 +1354,7 @@
 
     function deleteParticipant(participantId) {
         const person = getParticipants().find(item =>
-            item.id === participantId
+            String(item.id) === String(participantId)
         );
 
         if (!person) return;
@@ -1177,14 +1368,20 @@
         const data = getData();
 
         data.participants = data.participants.filter(item =>
-            item.id !== participantId
+            String(item.id) !== String(participantId)
         );
 
         Object.keys(data.planParticipants).forEach(planId => {
-            data.planParticipants[planId] =
-                data.planParticipants[planId].filter(item =>
-                    item.participantId !== participantId
-                );
+            const assignments = data.planParticipants[planId];
+
+            if (!Array.isArray(assignments)) {
+                delete data.planParticipants[planId];
+                return;
+            }
+
+            data.planParticipants[planId] = assignments.filter(item =>
+                String(item.participantId) !== String(participantId)
+            );
 
             if (data.planParticipants[planId].length === 0) {
                 delete data.planParticipants[planId];
@@ -1209,15 +1406,26 @@
         selectedParticipantId = participantId;
 
         const person = getParticipants().find(item =>
-            item.id === participantId
+            String(item.id) === String(participantId)
         );
 
         if (!person) return;
 
+        renderAssignmentsContent(person);
+
+        bootstrap.Modal.getOrCreateInstance(
+            document.getElementById("participantPlansModal")
+        ).show();
+    }
+
+    function renderAssignmentsContent(person) {
         const plans = getPlans();
+
         const content = document.getElementById(
             "participantPlansContent"
         );
+
+        if (!content) return;
 
         if (plans.length === 0) {
             content.innerHTML = `
@@ -1229,81 +1437,91 @@
                     </p>
                 </div>
             `;
-        } else {
-            const data = getData();
 
-            content.innerHTML = `
-                <p class="text-secondary small mb-3">
-                    Gestionando los planes de
-                    <strong>${escapeHTML(person.name)}</strong>.
-                </p>
-
-                ${plans.map(plan => {
-                    const planId = String(plan.id);
-
-                    const assignment = (
-                        data.planParticipants[planId] || []
-                    ).find(item =>
-                        item.participantId === participantId
-                    );
-
-                    return `
-                        <div class="participant-assignment-row">
-
-                            <div>
-                                <strong>
-                                    ${escapeHTML(plan.name || "Plan sin nombre")}
-                                </strong>
-
-                                <small>
-                                    ${escapeHTML(plan.date || "Sin fecha")}
-                                </small>
-                            </div>
-
-                            <select
-                                class="form-select form-select-sm"
-                                data-assignment-plan="${escapeHTML(planId)}"
-                                aria-label="Estado de participación"
-                            >
-                                <option
-                                    value="No asignado"
-                                    ${!assignment ? "selected" : ""}
-                                >
-                                    No asignado
-                                </option>
-
-                                <option
-                                    value="Pendiente"
-                                    ${assignment?.status === "Pendiente" ? "selected" : ""}
-                                >
-                                    Pendiente
-                                </option>
-
-                                <option
-                                    value="Confirmado"
-                                    ${assignment?.status === "Confirmado" ? "selected" : ""}
-                                >
-                                    Confirmado
-                                </option>
-
-                                <option
-                                    value="Rechazado"
-                                    ${assignment?.status === "Rechazado" ? "selected" : ""}
-                                >
-                                    Rechazado
-                                </option>
-
-                            </select>
-
-                        </div>
-                    `;
-                }).join("")}
-            `;
+            return;
         }
 
-        bootstrap.Modal.getOrCreateInstance(
-            document.getElementById("participantPlansModal")
-        ).show();
+        const data = getData();
+
+        const sortedPlans = [...plans].sort((a, b) =>
+            String(a.date || "").localeCompare(String(b.date || ""))
+        );
+
+        content.innerHTML = `
+            <p class="text-secondary small mb-3">
+                Gestionando los planes de
+                <strong>${escapeHTML(person.name)}</strong>.
+            </p>
+
+            ${sortedPlans.map(plan => {
+                const planId = String(plan.id);
+
+                const assignments = data.planParticipants[planId] || [];
+
+                const assignment = assignments.find(item =>
+                    String(item.participantId) === String(selectedParticipantId)
+                );
+
+                const isCancelled = normalizeText(plan.status) === "cancelado";
+
+                return `
+                    <div class="participant-assignment-row">
+
+                        <div>
+                            <strong>
+                                ${escapeHTML(plan.name || "Plan sin nombre")}
+                            </strong>
+
+                            <small>
+                                ${escapeHTML(plan.date || "Sin fecha")}
+                            </small>
+
+                            ${isCancelled ? `
+                                <span class="participant-plan-cancelled">
+                                    Plan cancelado
+                                </span>
+                            ` : ""}
+                        </div>
+
+                        <select
+                            class="form-select form-select-sm"
+                            data-assignment-plan="${escapeHTML(planId)}"
+                            aria-label="Estado de participación en ${escapeHTML(plan.name || "el plan")}"
+                        >
+                            <option
+                                value="No asignado"
+                                ${!assignment ? "selected" : ""}
+                            >
+                                No asignado
+                            </option>
+
+                            <option
+                                value="Pendiente"
+                                ${assignment?.status === "Pendiente" ? "selected" : ""}
+                            >
+                                Pendiente
+                            </option>
+
+                            <option
+                                value="Confirmado"
+                                ${assignment?.status === "Confirmado" ? "selected" : ""}
+                            >
+                                Confirmado
+                            </option>
+
+                            <option
+                                value="Rechazado"
+                                ${assignment?.status === "Rechazado" ? "selected" : ""}
+                            >
+                                Rechazado
+                            </option>
+
+                        </select>
+
+                    </div>
+                `;
+            }).join("")}
+        `;
     }
 
     function updateAssignment(planId, status) {
@@ -1319,7 +1537,7 @@
         const assignments = data.planParticipants[key];
 
         const index = assignments.findIndex(item =>
-            item.participantId === selectedParticipantId
+            String(item.participantId) === String(selectedParticipantId)
         );
 
         if (status === "No asignado") {
@@ -1350,8 +1568,16 @@
             planId: key
         });
 
+        updateSummary();
+
         renderParticipants(
             document.getElementById("participantsSearch")?.value || ""
+        );
+
+        showToast(
+            status === "No asignado"
+                ? "Participación eliminada."
+                : "Participación actualizada."
         );
     }
 
@@ -1360,78 +1586,92 @@
     ===================================================== */
 
     function bindEvents() {
-        document.getElementById("addParticipantButton")
-            ?.addEventListener("click", () => openParticipantModal());
+        if (eventsBound) return;
 
-        document.getElementById("participantForm")
-            ?.addEventListener("submit", saveParticipant);
+        const addButton = document.getElementById(
+            "addParticipantButton"
+        );
 
-        document.getElementById("participantsSearch")
-            ?.addEventListener("input", event => {
-                renderParticipants(event.target.value);
-            });
+        const form = document.getElementById("participantForm");
 
-        document.getElementById("participantsGrid")
-            ?.addEventListener("click", event => {
+        const search = document.getElementById("participantsSearch");
 
-                const button = event.target.closest("[data-action]");
+        const grid = document.getElementById("participantsGrid");
 
-                if (!button) return;
+        const photoInput = document.getElementById("participantPhoto");
 
-                const id = button.dataset.id;
-                const action = button.dataset.action;
+        const removePhotoButton = document.getElementById(
+            "removeParticipantPhoto"
+        );
 
-                if (action === "edit") {
-                    openParticipantModal(id);
-                }
+        const assignmentsContent = document.getElementById(
+            "participantPlansContent"
+        );
 
-                if (action === "delete") {
-                    deleteParticipant(id);
-                }
+        addButton?.addEventListener("click", () => {
+            openParticipantModal();
+        });
 
-                if (action === "assign") {
-                    openAssignments(id);
-                }
-            });
+        form?.addEventListener("submit", saveParticipant);
 
-        document.getElementById("participantPhoto")
-            ?.addEventListener("change", async event => {
+        search?.addEventListener("input", event => {
+            renderParticipants(event.target.value);
+        });
 
-                const file = event.target.files[0];
+        grid?.addEventListener("click", event => {
+            const button = event.target.closest("[data-action]");
 
-                if (!file) return;
+            if (!button) return;
 
-                try {
-                    const photo = await readPhoto(file);
-                    showPhotoPreview(photo);
-                } catch (error) {
-                    event.target.value = "";
-                    showToast(error.message, "danger");
-                }
-            });
+            const id = button.dataset.id;
+            const action = button.dataset.action;
 
-        document.getElementById("removeParticipantPhoto")
-            ?.addEventListener("click", () => {
+            if (action === "edit") {
+                openParticipantModal(id);
+            }
 
-                document.getElementById("participantPhoto").value = "";
-                clearPhotoPreview();
+            if (action === "delete") {
+                deleteParticipant(id);
+            }
 
-            });
+            if (action === "assign") {
+                openAssignments(id);
+            }
+        });
 
-        document.getElementById("participantPlansContent")
-            ?.addEventListener("change", event => {
+        photoInput?.addEventListener("change", async event => {
+            const file = event.target.files[0];
 
-                const select = event.target.closest(
-                    "[data-assignment-plan]"
-                );
+            if (!file) return;
 
-                if (!select) return;
+            try {
+                const photo = await readPhoto(file);
+                showPhotoPreview(photo);
+            } catch (error) {
+                event.target.value = "";
+                showToast(error.message, "danger");
+            }
+        });
 
-                updateAssignment(
-                    select.dataset.assignmentPlan,
-                    select.value
-                );
-            });
+        removePhotoButton?.addEventListener("click", () => {
+            photoInput.value = "";
+            clearPhotoPreview();
+        });
+
+        assignmentsContent?.addEventListener("change", event => {
+            const select = event.target.closest(
+                "[data-assignment-plan]"
+            );
+
+            if (!select) return;
+
+            updateAssignment(
+                select.dataset.assignmentPlan,
+                select.value
+            );
+        });
+
+        eventsBound = true;
     }
 
     /* =====================================================

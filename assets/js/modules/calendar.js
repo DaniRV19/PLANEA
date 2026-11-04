@@ -10,6 +10,7 @@
     let initialized = false;
     let currentDate = new Date();
     let selectedDate = getToday();
+    let currentView = "month";
 
     const STORAGE = () => window.PLANEA_STORAGE;
 
@@ -50,19 +51,34 @@
     }
 
     function keyToDate(key) {
-        if (!key) {
+        if (!key || typeof key !== "string") {
             return null;
         }
 
         const parts = key.split("-").map(Number);
 
-        if (parts.length !== 3 || parts.some(Number.isNaN)) {
+        if (
+            parts.length !== 3 ||
+            parts.some(Number.isNaN)
+        ) {
             return null;
         }
 
-        const date = new Date(parts[0], parts[1] - 1, parts[2]);
+        const date = new Date(
+            parts[0],
+            parts[1] - 1,
+            parts[2]
+        );
 
-        return Number.isNaN(date.getTime()) ? null : date;
+        if (
+            date.getFullYear() !== parts[0] ||
+            date.getMonth() !== parts[1] - 1 ||
+            date.getDate() !== parts[2]
+        ) {
+            return null;
+        }
+
+        return date;
     }
 
     function formatDate(dateString, options = {}) {
@@ -84,6 +100,40 @@
             month: "long",
             year: "numeric"
         }).format(date);
+    }
+
+    function formatWeekRange(start, end) {
+        const sameMonth =
+            start.getMonth() === end.getMonth() &&
+            start.getFullYear() === end.getFullYear();
+
+        const sameYear =
+            start.getFullYear() === end.getFullYear();
+
+        if (sameMonth) {
+            return `${start.getDate()} - ${end.getDate()} de ${
+                new Intl.DateTimeFormat("es-ES", {
+                    month: "long",
+                    year: "numeric"
+                }).format(end)
+            }`;
+        }
+
+        if (sameYear) {
+            return `${start.getDate()} ${new Intl.DateTimeFormat(
+                "es-ES",
+                { month: "short" }
+            ).format(start)} - ${end.getDate()} ${new Intl.DateTimeFormat(
+                "es-ES",
+                { month: "short", year: "numeric" }
+            ).format(end)}`;
+        }
+
+        return `${formatDate(dateToKey(start), {
+            year: "numeric"
+        })} - ${formatDate(dateToKey(end), {
+            year: "numeric"
+        })}`;
     }
 
     function normalizeStatus(status) {
@@ -163,7 +213,7 @@
         const result = {};
 
         getPlans().forEach(plan => {
-            if (!plan.date) {
+            if (!plan.date || !keyToDate(plan.date)) {
                 return;
             }
 
@@ -183,6 +233,32 @@
         });
 
         return result;
+    }
+
+    function getWeekStart(date) {
+        const result = new Date(
+            date.getFullYear(),
+            date.getMonth(),
+            date.getDate()
+        );
+
+        const day = (result.getDay() + 6) % 7;
+
+        result.setDate(result.getDate() - day);
+
+        return result;
+    }
+
+    function getWeekDays(date) {
+        const start = getWeekStart(date);
+
+        return Array.from({ length: 7 }, (_, index) => {
+            const day = new Date(start);
+
+            day.setDate(start.getDate() + index);
+
+            return day;
+        });
     }
 
     function isSameMonth(dateA, dateB) {
@@ -207,7 +283,7 @@
         style.textContent = `
             .planea-calendar-wrapper {
                 display: grid;
-                grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.85fr);
+                grid-template-columns: minmax(0, 1.65fr) minmax(280px, .85fr);
                 gap: 24px;
                 align-items: start;
             }
@@ -236,6 +312,13 @@
                 font-weight: 700;
                 text-transform: capitalize;
                 margin: 0;
+            }
+
+            .planea-calendar-toolbar-right {
+                display: flex;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 10px;
             }
 
             .planea-calendar-navigation {
@@ -278,6 +361,32 @@
             }
 
             .planea-calendar-today-btn:hover {
+                background: #16a36a;
+                color: #fff;
+            }
+
+            .planea-calendar-view-switch {
+                display: flex;
+                padding: 4px;
+                gap: 3px;
+                border-radius: 10px;
+                background: rgba(255,255,255,.045);
+                border: 1px solid var(--border-color, rgba(255,255,255,.08));
+            }
+
+            .planea-calendar-view-btn {
+                border: 0;
+                border-radius: 7px;
+                padding: 7px 11px;
+                background: transparent;
+                color: var(--text-secondary, #a0aaa5);
+                font-size: .78rem;
+                font-weight: 600;
+                cursor: pointer;
+                transition: .2s ease;
+            }
+
+            .planea-calendar-view-btn.active {
                 background: #16a36a;
                 color: #fff;
             }
@@ -418,6 +527,119 @@
             .planea-calendar-legend-dot.cancelled {
                 background: #d66c6c;
             }
+
+            /* VISTA SEMANAL */
+
+            .planea-calendar-week-grid {
+                display: grid;
+                grid-template-columns: repeat(7, minmax(0, 1fr));
+                gap: 8px;
+            }
+
+            .planea-calendar-week-column {
+                min-width: 0;
+                min-height: 190px;
+                padding: 10px 7px;
+                border: 1px solid var(--border-color, rgba(255,255,255,.08));
+                border-radius: 12px;
+                background: rgba(255,255,255,.025);
+                cursor: pointer;
+                transition: .2s ease;
+            }
+
+            .planea-calendar-week-column:hover {
+                border-color: rgba(22,163,106,.4);
+                background: rgba(22,163,106,.045);
+            }
+
+            .planea-calendar-week-column.today {
+                border-color: rgba(22,163,106,.6);
+            }
+
+            .planea-calendar-week-column.selected {
+                background: rgba(22,163,106,.1);
+                border-color: #16a36a;
+            }
+
+            .planea-calendar-week-day-name {
+                display: block;
+                color: var(--text-secondary, #a0aaa5);
+                text-align: center;
+                font-size: .72rem;
+                font-weight: 700;
+                text-transform: uppercase;
+            }
+
+            .planea-calendar-week-day-number {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: 30px;
+                height: 30px;
+                margin: 6px auto 12px;
+                border-radius: 9px;
+                color: var(--text-primary, #fff);
+                font-weight: 700;
+                font-size: .85rem;
+            }
+
+            .planea-calendar-week-column.today .planea-calendar-week-day-number {
+                background: #16a36a;
+                color: #fff;
+            }
+
+            .planea-calendar-week-events {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+
+            .planea-calendar-week-event {
+                display: block;
+                width: 100%;
+                padding: 6px;
+                border: 0;
+                border-left: 3px solid #e3aa48;
+                border-radius: 5px;
+                background: rgba(227,170,72,.1);
+                color: var(--text-primary, #fff);
+                text-align: left;
+                font-size: .68rem;
+                line-height: 1.35;
+                overflow-wrap: anywhere;
+                cursor: pointer;
+            }
+
+            .planea-calendar-week-event.planea-calendar-confirmed {
+                border-left-color: #3b9df5;
+                background: rgba(59,157,245,.1);
+            }
+
+            .planea-calendar-week-event.planea-calendar-completed {
+                border-left-color: #9b8bea;
+                background: rgba(155,139,234,.1);
+            }
+
+            .planea-calendar-week-event.planea-calendar-cancelled {
+                border-left-color: #d66c6c;
+                background: rgba(214,108,108,.1);
+            }
+
+            .planea-calendar-week-event-time {
+                display: block;
+                margin-bottom: 3px;
+                color: var(--text-secondary, #a0aaa5);
+                font-size: .62rem;
+            }
+
+            .planea-calendar-week-empty {
+                color: var(--text-secondary, #a0aaa5);
+                text-align: center;
+                font-size: .65rem;
+                padding-top: 10px;
+            }
+
+            /* PANEL LATERAL */
 
             .planea-calendar-sidebar-title {
                 color: var(--text-primary, #fff);
@@ -592,6 +814,18 @@
                 }
             }
 
+            @media (max-width: 700px) {
+                .planea-calendar-week-grid {
+                    grid-template-columns: repeat(7, minmax(85px, 1fr));
+                    overflow-x: auto;
+                    padding-bottom: 8px;
+                }
+
+                .planea-calendar-week-column {
+                    min-height: 150px;
+                }
+            }
+
             @media (max-width: 600px) {
                 .planea-calendar-main,
                 .planea-calendar-sidebar {
@@ -605,6 +839,11 @@
 
                 .planea-calendar-month {
                     font-size: 1.1rem;
+                }
+
+                .planea-calendar-toolbar-right {
+                    width: 100%;
+                    justify-content: space-between;
                 }
 
                 .planea-calendar-day {
@@ -671,30 +910,54 @@
                             id="planeaCalendarMonth">
                         </h3>
 
-                        <div class="planea-calendar-navigation">
+                        <div class="planea-calendar-toolbar-right">
 
-                            <button
-                                type="button"
-                                class="planea-calendar-today-btn"
-                                data-calendar-action="today">
-                                Hoy
-                            </button>
+                            <div class="planea-calendar-view-switch">
 
-                            <button
-                                type="button"
-                                class="planea-calendar-nav-btn"
-                                data-calendar-action="previous"
-                                aria-label="Mes anterior">
-                                <i class="bi bi-chevron-left"></i>
-                            </button>
+                                <button
+                                    type="button"
+                                    class="planea-calendar-view-btn active"
+                                    data-calendar-view="month">
+                                    <i class="bi bi-calendar3"></i>
+                                    Mes
+                                </button>
 
-                            <button
-                                type="button"
-                                class="planea-calendar-nav-btn"
-                                data-calendar-action="next"
-                                aria-label="Mes siguiente">
-                                <i class="bi bi-chevron-right"></i>
-                            </button>
+                                <button
+                                    type="button"
+                                    class="planea-calendar-view-btn"
+                                    data-calendar-view="week">
+                                    <i class="bi bi-calendar-week"></i>
+                                    Semana
+                                </button>
+
+                            </div>
+
+                            <div class="planea-calendar-navigation">
+
+                                <button
+                                    type="button"
+                                    class="planea-calendar-today-btn"
+                                    data-calendar-action="today">
+                                    Hoy
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="planea-calendar-nav-btn"
+                                    data-calendar-action="previous"
+                                    aria-label="Anterior">
+                                    <i class="bi bi-chevron-left"></i>
+                                </button>
+
+                                <button
+                                    type="button"
+                                    class="planea-calendar-nav-btn"
+                                    data-calendar-action="next"
+                                    aria-label="Siguiente">
+                                    <i class="bi bi-chevron-right"></i>
+                                </button>
+
+                            </div>
 
                         </div>
 
@@ -703,6 +966,12 @@
                     <div
                         class="planea-calendar-grid"
                         id="planeaCalendarGrid">
+                    </div>
+
+                    <div
+                        class="planea-calendar-week-grid"
+                        id="planeaCalendarWeekGrid"
+                        hidden>
                     </div>
 
                     <div class="planea-calendar-legend">
@@ -761,21 +1030,50 @@
     }
 
     /* =====================================================
-       RENDER DEL CALENDARIO
+       CAMBIO DE VISTA
        ===================================================== */
 
-    function renderCalendar() {
-        const grid = getElement("planeaCalendarGrid");
-        const monthTitle = getElement("planeaCalendarMonth");
+    function setView(view) {
+        if (view !== "month" && view !== "week") {
+            return;
+        }
 
-        if (!grid || !monthTitle) {
+        currentView = view;
+
+        const monthGrid = getElement("planeaCalendarGrid");
+        const weekGrid = getElement("planeaCalendarWeekGrid");
+
+        if (monthGrid) {
+            monthGrid.hidden = view !== "month";
+        }
+
+        if (weekGrid) {
+            weekGrid.hidden = view !== "week";
+        }
+
+        document.querySelectorAll("[data-calendar-view]").forEach(button => {
+            button.classList.toggle(
+                "active",
+                button.dataset.calendarView === view
+            );
+        });
+
+        renderCalendar();
+    }
+
+    /* =====================================================
+       RENDER VISTA MENSUAL
+       ===================================================== */
+
+    function renderMonthView() {
+        const grid = getElement("planeaCalendarGrid");
+
+        if (!grid) {
             return;
         }
 
         const year = currentDate.getFullYear();
         const month = currentDate.getMonth();
-
-        monthTitle.textContent = formatMonth(currentDate);
 
         const plansByDate = getPlansByDate();
 
@@ -791,22 +1089,21 @@
         const offset = (firstDay.getDay() + 6) % 7;
 
         const daysInMonth = new Date(year, month + 1, 0).getDate();
-
         const previousMonthDays = new Date(year, month, 0).getDate();
 
         const today = getToday();
 
-        // Días del mes anterior.
         for (let i = offset - 1; i >= 0; i--) {
             const day = previousMonthDays - i;
+            const dateKey = dateToKey(
+                new Date(year, month - 1, day)
+            );
 
             html += `
                 <button
                     type="button"
                     class="planea-calendar-day other-month"
-                    data-calendar-date="${dateToKey(
-                        new Date(year, month - 1, day)
-                    )}">
+                    data-calendar-date="${dateKey}">
                     <span class="planea-calendar-day-number">
                         ${day}
                     </span>
@@ -814,7 +1111,6 @@
             `;
         }
 
-        // Días del mes actual.
         for (let day = 1; day <= daysInMonth; day++) {
             const dateKey = dateToKey(
                 new Date(year, month, day)
@@ -848,7 +1144,7 @@
                     type="button"
                     class="${classes}"
                     data-calendar-date="${dateKey}"
-                    aria-label="${day} de ${formatMonth(currentDate)}">
+                    aria-label="${day} de ${escapeHTML(formatMonth(currentDate))}">
 
                     <span class="planea-calendar-day-number">
                         ${day}
@@ -863,18 +1159,19 @@
             `;
         }
 
-        // Días del mes siguiente para completar la cuadrícula.
         const totalCells = offset + daysInMonth;
         const remaining = (7 - (totalCells % 7)) % 7;
 
         for (let day = 1; day <= remaining; day++) {
+            const dateKey = dateToKey(
+                new Date(year, month + 1, day)
+            );
+
             html += `
                 <button
                     type="button"
                     class="planea-calendar-day other-month"
-                    data-calendar-date="${dateToKey(
-                        new Date(year, month + 1, day)
-                    )}">
+                    data-calendar-date="${dateKey}">
                     <span class="planea-calendar-day-number">
                         ${day}
                     </span>
@@ -883,6 +1180,105 @@
         }
 
         grid.innerHTML = html;
+    }
+
+    /* =====================================================
+       RENDER VISTA SEMANAL
+       ===================================================== */
+
+    function renderWeekView() {
+        const grid = getElement("planeaCalendarWeekGrid");
+
+        if (!grid) {
+            return;
+        }
+
+        const days = getWeekDays(currentDate);
+        const plansByDate = getPlansByDate();
+        const today = getToday();
+
+        grid.innerHTML = days.map(date => {
+            const dateKey = dateToKey(date);
+            const plans = plansByDate[dateKey] || [];
+
+            const classes = [
+                "planea-calendar-week-column",
+                dateKey === today ? "today" : "",
+                dateKey === selectedDate ? "selected" : ""
+            ].filter(Boolean).join(" ");
+
+            const eventsHTML = plans.length
+                ? plans.map(plan => `
+                    <button
+                        type="button"
+                        class="planea-calendar-week-event ${getStatusClass(
+                            getStatus(plan)
+                        )}"
+                        data-calendar-edit="${escapeHTML(plan.id)}"
+                        title="${escapeHTML(plan.name || "Plan sin nombre")}">
+
+                        <span class="planea-calendar-week-event-time">
+                            ${escapeHTML(plan.time || "Sin hora")}
+                        </span>
+
+                        ${escapeHTML(plan.name || "Plan sin nombre")}
+
+                    </button>
+                `).join("")
+                : `
+                    <div class="planea-calendar-week-empty">
+                        Sin planes
+                    </div>
+                `;
+
+            return `
+                <div
+                    class="${classes}"
+                    data-calendar-date="${dateKey}">
+
+                    <span class="planea-calendar-week-day-name">
+                        ${new Intl.DateTimeFormat("es-ES", {
+                            weekday: "short"
+                        }).format(date)}
+                    </span>
+
+                    <span class="planea-calendar-week-day-number">
+                        ${date.getDate()}
+                    </span>
+
+                    <div class="planea-calendar-week-events">
+                        ${eventsHTML}
+                    </div>
+
+                </div>
+            `;
+        }).join("");
+    }
+
+    /* =====================================================
+       RENDER GENERAL DEL CALENDARIO
+       ===================================================== */
+
+    function renderCalendar() {
+        const monthTitle = getElement("planeaCalendarMonth");
+
+        if (!monthTitle) {
+            return;
+        }
+
+        if (currentView === "month") {
+            monthTitle.textContent = formatMonth(currentDate);
+            renderMonthView();
+        } else {
+            const days = getWeekDays(currentDate);
+
+            monthTitle.textContent = formatWeekRange(
+                days[0],
+                days[6]
+            );
+
+            renderWeekView();
+        }
 
         renderSelectedDay();
     }
@@ -924,13 +1320,8 @@
         if (plans.length === 0) {
             plansContainer.innerHTML = `
                 <div class="planea-calendar-empty">
-
                     <i class="bi bi-calendar2-plus"></i>
-
-                    <p>
-                        No tienes ningún plan para este día.
-                    </p>
-
+                    <p>No tienes ningún plan para este día.</p>
                 </div>
             `;
         } else {
@@ -1009,6 +1400,10 @@
             normalizeStatus(getStatus(plan)) === "realizado"
         ).length;
 
+        const cancelled = plans.filter(plan =>
+            normalizeStatus(getStatus(plan)) === "cancelado"
+        ).length;
+
         summaryContainer.innerHTML = `
             <div class="planea-calendar-summary-item">
                 <strong>${pending}</strong>
@@ -1026,8 +1421,8 @@
             </div>
 
             <div class="planea-calendar-summary-item">
-                <strong>${plans.length}</strong>
-                <span>Total de planes</span>
+                <strong>${cancelled}</strong>
+                <span>Cancelados</span>
             </div>
         `;
     }
@@ -1037,11 +1432,20 @@
        ===================================================== */
 
     function changeMonth(amount) {
-        currentDate = new Date(
-            currentDate.getFullYear(),
-            currentDate.getMonth() + amount,
-            1
-        );
+        if (currentView === "week") {
+            const date = keyToDate(selectedDate) || currentDate;
+
+            date.setDate(date.getDate() + amount * 7);
+
+            currentDate = date;
+            selectedDate = dateToKey(date);
+        } else {
+            currentDate = new Date(
+                currentDate.getFullYear(),
+                currentDate.getMonth() + amount,
+                1
+            );
+        }
 
         renderCalendar();
     }
@@ -1052,7 +1456,7 @@
         currentDate = new Date(
             today.getFullYear(),
             today.getMonth(),
-            1
+            today.getDate()
         );
 
         selectedDate = getToday();
@@ -1069,15 +1473,32 @@
 
         selectedDate = dateKey;
 
-        if (!isSameMonth(date, currentDate)) {
-            currentDate = new Date(
-                date.getFullYear(),
-                date.getMonth(),
-                1
-            );
-        }
+        currentDate = new Date(
+            date.getFullYear(),
+            date.getMonth(),
+            date.getDate()
+        );
 
         renderCalendar();
+    }
+
+    /* =====================================================
+       EDICIÓN DE PLANES
+       ===================================================== */
+
+    function editPlan(planId) {
+        if (
+            !window.PLANEA_PLANS ||
+            typeof window.PLANEA_PLANS.openEditModal !== "function"
+        ) {
+            console.warn(
+                "PLANEA: No se ha encontrado la función de edición de planes."
+            );
+
+            return;
+        }
+
+        window.PLANEA_PLANS.openEditModal(planId);
     }
 
     /* =====================================================
@@ -1087,13 +1508,25 @@
     function bindEvents() {
         const container = getElement("calendarModuleContainer");
 
-        if (!container || container.dataset.calendarEvents === "true") {
+        if (
+            !container ||
+            container.dataset.calendarEvents === "true"
+        ) {
             return;
         }
 
         container.dataset.calendarEvents = "true";
 
         container.addEventListener("click", event => {
+            const viewButton = event.target.closest(
+                "[data-calendar-view]"
+            );
+
+            if (viewButton) {
+                setView(viewButton.dataset.calendarView);
+                return;
+            }
+
             const actionButton = event.target.closest(
                 "[data-calendar-action]"
             );
@@ -1121,19 +1554,7 @@
             );
 
             if (editButton) {
-                const planId = editButton.dataset.calendarEdit;
-
-                if (
-                    window.PLANEA_PLANS &&
-                    typeof window.PLANEA_PLANS.openEditModal === "function"
-                ) {
-                    window.PLANEA_PLANS.openEditModal(planId);
-                } else {
-                    console.warn(
-                        "PLANEA: No se ha encontrado la función de edición de planes."
-                    );
-                }
-
+                editPlan(editButton.dataset.calendarEdit);
                 return;
             }
 
@@ -1189,6 +1610,7 @@
         if (!initialized) {
             renderLayout();
             bindEvents();
+
             initialized = true;
 
             document.addEventListener(
@@ -1222,7 +1644,8 @@
         render,
         goToToday,
         changeMonth,
-        selectDate
+        selectDate,
+        setView
     };
 
 })();

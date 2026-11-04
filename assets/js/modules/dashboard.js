@@ -1,19 +1,20 @@
-
 /* =========================================================
    PLANEA - DASHBOARD
    Archivo: assets/js/modules/dashboard.js
-   ========================================================= */
+   Versión mejorada
+========================================================= */
 
 (() => {
     "use strict";
 
     let initialized = false;
+    let eventsBound = false;
 
     const STORAGE = () => window.PLANEA_STORAGE;
 
     /* =====================================================
        UTILIDADES
-       ===================================================== */
+    ===================================================== */
 
     function getElement(id) {
         return document.getElementById(id);
@@ -64,31 +65,54 @@
         ].join("-");
     }
 
+    function getPlans() {
+        if (!STORAGE()) {
+            return [];
+        }
+
+        const plans = STORAGE().getPlans();
+
+        return Array.isArray(plans) ? plans : [];
+    }
+
+    function getActivity() {
+        if (!STORAGE() || typeof STORAGE().getActivity !== "function") {
+            return [];
+        }
+
+        const activities = STORAGE().getActivity();
+
+        return Array.isArray(activities) ? activities : [];
+    }
+
+    function getProfile() {
+        if (!STORAGE() || typeof STORAGE().getProfile !== "function") {
+            return {};
+        }
+
+        return STORAGE().getProfile() || {};
+    }
+
+    function getPlanStatus(plan) {
+        return String(plan?.status || "Pendiente").trim();
+    }
+
     function normalizeStatus(status) {
-        return String(status || "Pendiente")
+        return String(status || "")
             .trim()
             .toLowerCase();
     }
 
-    function getPlanStatus(plan) {
-        return plan.status || "Pendiente";
+    function isCancelled(plan) {
+        return normalizeStatus(getPlanStatus(plan)) === "cancelado";
+    }
+
+    function isCompleted(plan) {
+        return normalizeStatus(getPlanStatus(plan)) === "realizado";
     }
 
     function isActivePlan(plan) {
-        const status = normalizeStatus(getPlanStatus(plan));
-
-        return status !== "cancelado" &&
-               status !== "realizado";
-    }
-
-    function getPlanExpenses(plan) {
-        if (!Array.isArray(plan.expenses)) {
-            return 0;
-        }
-
-        return plan.expenses.reduce((total, expense) => {
-            return total + (Number(expense.amount) || 0);
-        }, 0);
+        return !isCancelled(plan) && !isCompleted(plan);
     }
 
     function getStatusClass(status) {
@@ -123,57 +147,136 @@
         return icons[category] || "bi-calendar-event";
     }
 
-    function getPlans() {
-        if (!STORAGE() || typeof STORAGE().getPlans !== "function") {
-            return [];
+    function getPlanExpenses(plan) {
+        if (!Array.isArray(plan?.expenses)) {
+            return 0;
         }
 
-        const plans = STORAGE().getPlans();
-
-        return Array.isArray(plans) ? plans : [];
+        return plan.expenses.reduce((total, expense) => {
+            return total + (Number(expense.amount) || 0);
+        }, 0);
     }
 
-    function sortPlansByDate(a, b) {
-        const dateComparison = String(a.date || "")
-            .localeCompare(String(b.date || ""));
+    function getPlanDateTime(plan) {
+        return `${plan.date || "9999-12-31"}T${plan.time || "23:59"}`;
+    }
 
-        if (dateComparison !== 0) {
-            return dateComparison;
+    function isValidDate(dateString) {
+        if (!dateString) {
+            return false;
         }
 
-        return String(a.time || "").localeCompare(
-            String(b.time || "")
-        );
+        const date = new Date(`${dateString}T00:00:00`);
+
+        return !Number.isNaN(date.getTime());
+    }
+
+    function getRelativeDate(dateString) {
+        if (dateString === getToday()) {
+            return "Hoy";
+        }
+
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const tomorrowString = [
+            tomorrow.getFullYear(),
+            String(tomorrow.getMonth() + 1).padStart(2, "0"),
+            String(tomorrow.getDate()).padStart(2, "0")
+        ].join("-");
+
+        if (dateString === tomorrowString) {
+            return "Mañana";
+        }
+
+        return formatDate(dateString, {
+            weekday: "long"
+        });
     }
 
     /* =====================================================
-       FECHA DEL DASHBOARD
-       ===================================================== */
+       FECHA Y BIENVENIDA
+    ===================================================== */
 
     function renderCurrentDate() {
         const container = getElement("currentDate");
 
-        if (!container) {
-            return;
+        if (container) {
+            const span = container.querySelector("span");
+
+            if (span) {
+                span.textContent = new Intl.DateTimeFormat("es-ES", {
+                    weekday: "long",
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric"
+                }).format(new Date());
+            }
         }
 
-        const span = container.querySelector("span");
+        // Actualizar el nombre si existe un elemento para ello.
+        const profile = getProfile();
 
-        if (!span) {
-            return;
+        const name = profile.name
+            ? String(profile.name).trim().split(" ")[0]
+            : "";
+
+        const greetingElement = getElement("dashboardGreetingName");
+
+        if (greetingElement && name) {
+            greetingElement.textContent = name;
         }
-
-        span.textContent = new Intl.DateTimeFormat("es-ES", {
-            weekday: "long",
-            day: "numeric",
-            month: "long",
-            year: "numeric"
-        }).format(new Date());
     }
 
     /* =====================================================
        ESTADÍSTICAS
-       ===================================================== */
+    ===================================================== */
+
+    function getExpenseDate(expense, plan) {
+        if (expense?.date && isValidDate(expense.date)) {
+            return expense.date;
+        }
+
+        return plan?.date || "";
+    }
+
+    function calculateMonthlyExpenses(plans) {
+        const now = new Date();
+
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+
+        return plans.reduce((total, plan) => {
+            if (!Array.isArray(plan.expenses)) {
+                return total;
+            }
+
+            const planExpenses = plan.expenses.reduce(
+                (planTotal, expense) => {
+                    const expenseDate = getExpenseDate(expense, plan);
+
+                    if (!isValidDate(expenseDate)) {
+                        return planTotal;
+                    }
+
+                    const date = new Date(`${expenseDate}T00:00:00`);
+
+                    const belongsToCurrentMonth =
+                        date.getMonth() === currentMonth &&
+                        date.getFullYear() === currentYear;
+
+                    if (!belongsToCurrentMonth) {
+                        return planTotal;
+                    }
+
+                    return planTotal + (Number(expense.amount) || 0);
+                },
+                0
+            );
+
+            return total + planExpenses;
+        }, 0);
+    }
 
     function renderStatistics() {
         const plans = getPlans();
@@ -190,36 +293,28 @@
             normalizeStatus(getPlanStatus(plan)) === "realizado"
         ).length;
 
-        const now = new Date();
+        const cancelled = plans.filter(plan =>
+            isCancelled(plan)
+        ).length;
 
-        const currentMonth = String(now.getMonth() + 1)
-            .padStart(2, "0");
+        const upcoming = plans.filter(plan =>
+            isActivePlan(plan) &&
+            plan.date &&
+            plan.date >= getToday()
+        ).length;
 
-        const currentYear = String(now.getFullYear());
-
-        const monthlyExpenses = plans.reduce((total, plan) => {
-            if (!plan.date) {
-                return total;
-            }
-
-            const [year, month] = String(plan.date).split("-");
-
-            const isCurrentMonth =
-                year === currentYear &&
-                month === currentMonth;
-
-            if (!isCurrentMonth) {
-                return total;
-            }
-
-            return total + getPlanExpenses(plan);
-        }, 0);
+        const monthlyExpenses = calculateMonthlyExpenses(plans);
 
         const values = {
             pendingPlansCount: pending,
             confirmedPlansCount: confirmed,
             completedPlansCount: completed,
-            monthlyExpenses: formatCurrency(monthlyExpenses)
+            monthlyExpenses: formatCurrency(monthlyExpenses),
+
+            // Estos indicadores se actualizan si existen en el HTML.
+            totalPlansCount: plans.length,
+            cancelledPlansCount: cancelled,
+            upcomingPlansCount: upcoming
         };
 
         Object.entries(values).forEach(([id, value]) => {
@@ -233,7 +328,7 @@
 
     /* =====================================================
        PRÓXIMO PLAN
-       ===================================================== */
+    ===================================================== */
 
     function renderNextPlan() {
         const container = getElement("nextPlanContainer");
@@ -248,11 +343,16 @@
             .filter(plan => {
                 return (
                     plan.date &&
+                    isValidDate(plan.date) &&
                     plan.date >= today &&
                     isActivePlan(plan)
                 );
             })
-            .sort(sortPlansByDate);
+            .sort((a, b) => {
+                return getPlanDateTime(a).localeCompare(
+                    getPlanDateTime(b)
+                );
+            });
 
         const plan = plans[0];
 
@@ -266,13 +366,17 @@
                     <h4>Aún no tienes planes</h4>
 
                     <p>
-                        Empieza creando tu próximo plan
-                        y aparecerá aquí.
+                        Organiza algo especial y aparecerá
+                        automáticamente en este apartado.
                     </p>
 
-                    <a href="#" data-view="plans"
-                       class="btn btn-primary-green">
+                    <a
+                        href="#"
+                        data-view="plans"
+                        class="btn btn-primary-green">
+
                         Crear mi primer plan
+
                         <i class="bi bi-plus-lg ms-2"></i>
                     </a>
                 </div>
@@ -281,34 +385,34 @@
             return;
         }
 
-        const rawCategory = plan.category || "Otros";
-        const category = escapeHTML(rawCategory);
-        const name = escapeHTML(plan.name || "Plan sin nombre");
-        const location = escapeHTML(
-            plan.location || "Ubicación pendiente"
-        );
-
+        const category = plan.category || "Otros";
+        const name = plan.name || "Plan sin nombre";
+        const location = plan.location || "Ubicación pendiente";
         const status = getPlanStatus(plan);
 
-        const date = formatDate(plan.date, {
-            weekday: "long"
-        });
+        const planId = plan.id || "";
+
+        const date = getRelativeDate(plan.date);
+
+        const budget = Number(plan.estimatedBudget) || 0;
 
         container.innerHTML = `
-            <article class="next-plan-card">
+            <article
+                class="next-plan-card"
+                ${planId ? `data-dashboard-plan-id="${escapeHTML(planId)}"` : ""}>
 
                 <div class="next-plan-category">
-                    <i class="bi ${getCategoryIcon(rawCategory)}"></i>
-                    ${category}
+                    <i class="bi ${getCategoryIcon(category)}"></i>
+                    ${escapeHTML(category)}
                 </div>
 
-                <h4>${name}</h4>
+                <h4>${escapeHTML(name)}</h4>
 
                 <div class="next-plan-details">
 
                     <span>
                         <i class="bi bi-calendar3"></i>
-                        ${date}
+                        ${escapeHTML(date)}
                     </span>
 
                     ${plan.time ? `
@@ -320,7 +424,7 @@
 
                     <span>
                         <i class="bi bi-geo-alt"></i>
-                        ${location}
+                        ${escapeHTML(location)}
                     </span>
 
                 </div>
@@ -332,18 +436,33 @@
                     </span>
 
                     <span class="next-plan-budget">
-                        ${formatCurrency(plan.estimatedBudget)}
+                        ${formatCurrency(budget)}
                     </span>
 
                 </div>
 
+                ${planId ? `
+                    <div class="mt-3 text-end">
+                        <span class="small text-muted">
+                            Ver detalles
+                            <i class="bi bi-arrow-up-right ms-1"></i>
+                        </span>
+                    </div>
+                ` : ""}
+
             </article>
         `;
+
+        const card = container.querySelector("[data-dashboard-plan-id]");
+
+        if (card) {
+            card.style.cursor = "pointer";
+        }
     }
 
     /* =====================================================
        PRÓXIMOS ACONTECIMIENTOS
-       ===================================================== */
+    ===================================================== */
 
     function renderUpcomingEvents() {
         const container = getElement("upcomingEventsList");
@@ -358,18 +477,36 @@
             .filter(plan => {
                 return (
                     plan.date &&
+                    isValidDate(plan.date) &&
                     plan.date >= today &&
                     isActivePlan(plan)
                 );
             })
-            .sort(sortPlansByDate)
+            .sort((a, b) => {
+                return getPlanDateTime(a).localeCompare(
+                    getPlanDateTime(b)
+                );
+            })
             .slice(0, 5);
 
         if (upcoming.length === 0) {
             container.innerHTML = `
                 <div class="empty-state empty-state-small">
                     <i class="bi bi-calendar2-event"></i>
-                    <p>No hay próximos acontecimientos.</p>
+
+                    <p>
+                        No tienes próximos acontecimientos.
+                    </p>
+
+                    <a
+                        href="#"
+                        data-view="plans"
+                        class="small text-success text-decoration-none">
+
+                        Organizar un plan
+
+                        <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
                 </div>
             `;
 
@@ -379,48 +516,73 @@
         container.innerHTML = upcoming.map(plan => {
             const date = new Date(`${plan.date}T00:00:00`);
 
-            if (Number.isNaN(date.getTime())) {
-                return "";
-            }
+            const day = date.getDate();
+
+            const month = new Intl.DateTimeFormat("es-ES", {
+                month: "short"
+            }).format(date);
+
+            const relativeDate = getRelativeDate(plan.date);
+
+            const name = plan.name || "Plan sin nombre";
+            const category = plan.category || "Otros";
+            const location = plan.location || "";
+
+            const status = getPlanStatus(plan);
 
             return `
-                <article class="upcoming-event">
+                <article
+                    class="upcoming-event"
+                    ${plan.id ? `data-dashboard-plan-id="${escapeHTML(plan.id)}"` : ""}>
 
                     <div class="upcoming-event-date">
-                        <strong>${date.getDate()}</strong>
 
-                        <span>
-                            ${new Intl.DateTimeFormat("es-ES", {
-                                month: "short"
-                            }).format(date)}
-                        </span>
+                        <strong>${day}</strong>
+
+                        <span>${escapeHTML(month)}</span>
+
                     </div>
 
                     <div class="upcoming-event-info">
 
                         <h4>
-                            ${escapeHTML(plan.name || "Plan sin nombre")}
+                            ${escapeHTML(name)}
                         </h4>
 
                         <span>
-                            ${escapeHTML(plan.category || "Otros")}
-                            ${plan.time
-                                ? ` · ${escapeHTML(plan.time)}`
-                                : ""}
+                            ${escapeHTML(relativeDate)}
+                            ·
+                            ${escapeHTML(category)}
+                            ${plan.time ? ` · ${escapeHTML(plan.time)}` : ""}
                         </span>
 
+                        ${location ? `
+                            <span class="d-block mt-1">
+                                <i class="bi bi-geo-alt me-1"></i>
+                                ${escapeHTML(location)}
+                            </span>
+                        ` : ""}
+
                     </div>
+
+                    <span class="status-badge ${getStatusClass(status)}">
+                        ${escapeHTML(status)}
+                    </span>
 
                     <i class="bi bi-chevron-right"></i>
 
                 </article>
             `;
         }).join("");
+
+        container.querySelectorAll("[data-dashboard-plan-id]").forEach(card => {
+            card.style.cursor = "pointer";
+        });
     }
 
     /* =====================================================
        ACTIVIDAD RECIENTE
-       ===================================================== */
+    ===================================================== */
 
     function renderRecentActivity() {
         const container = getElement("recentActivityList");
@@ -429,33 +591,18 @@
             return;
         }
 
-        let activities = [];
-
-        if (
-            STORAGE() &&
-            typeof STORAGE().getActivity === "function"
-        ) {
-            const storedActivities = STORAGE().getActivity();
-
-            if (Array.isArray(storedActivities)) {
-                activities = storedActivities;
-            }
-        }
-
-        activities = [...activities]
-            .sort((a, b) => {
-                const dateA = new Date(a.date || 0).getTime();
-                const dateB = new Date(b.date || 0).getTime();
-
-                return dateB - dateA;
-            })
-            .slice(0, 5);
+        const activities = getActivity().slice(0, 5);
 
         if (activities.length === 0) {
             container.innerHTML = `
                 <div class="empty-state empty-state-small">
+
                     <i class="bi bi-activity"></i>
-                    <p>Tu actividad aparecerá aquí.</p>
+
+                    <p>
+                        Tu actividad aparecerá aquí.
+                    </p>
+
                 </div>
             `;
 
@@ -468,26 +615,30 @@
             plan_updated: "bi-pencil-square",
             plan_completed: "bi-check-circle",
             favorite_added: "bi-heart",
-            expense_added: "bi-wallet2"
+            expense_added: "bi-wallet2",
+            participant_added: "bi-person-plus",
+            participant_updated: "bi-person-check"
         };
 
         container.innerHTML = activities.map(activity => {
             const icon = icons[activity.type] || "bi-activity";
 
-            const parsedDate = activity.date
-                ? new Date(activity.date)
+            const rawDate = activity.date || activity.timestamp;
+
+            const date = rawDate
+                ? new Date(rawDate)
                 : new Date();
 
-            const date = Number.isNaN(parsedDate.getTime())
-                ? new Date()
-                : parsedDate;
+            const validDate = !Number.isNaN(date.getTime());
 
-            const time = new Intl.DateTimeFormat("es-ES", {
-                day: "numeric",
-                month: "short",
-                hour: "2-digit",
-                minute: "2-digit"
-            }).format(date);
+            const time = validDate
+                ? new Intl.DateTimeFormat("es-ES", {
+                    day: "numeric",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit"
+                }).format(date)
+                : "Fecha no disponible";
 
             return `
                 <article class="activity-item">
@@ -500,12 +651,13 @@
 
                         <p>
                             ${escapeHTML(
-                                activity.description ||
-                                "Actividad realizada"
+                                activity.description || "Actividad realizada"
                             )}
                         </p>
 
-                        <span>${time}</span>
+                        <span>
+                            ${escapeHTML(time)}
+                        </span>
 
                     </div>
 
@@ -515,8 +667,8 @@
     }
 
     /* =====================================================
-       CALENDARIO RESUMIDO
-       ===================================================== */
+       MINI CALENDARIO
+    ===================================================== */
 
     function renderMiniCalendar() {
         const container = getElement("dashboardMiniCalendar");
@@ -541,7 +693,11 @@
         const plansByDate = {};
 
         plans.forEach(plan => {
-            if (!plan.date || !isActivePlan(plan)) {
+            if (
+                !plan.date ||
+                !isValidDate(plan.date) ||
+                isCancelled(plan)
+            ) {
                 return;
             }
 
@@ -574,51 +730,50 @@
                 String(day).padStart(2, "0")
             ].join("-");
 
-            const hasPlans = Boolean(plansByDate[dateKey]);
+            const dayPlans = plansByDate[dateKey] || [];
+
+            const hasPlans = dayPlans.length > 0;
             const isToday = day === now.getDate();
 
-            const planCount = hasPlans
-                ? plansByDate[dateKey].length
-                : 0;
+            const tooltip = hasPlans
+                ? `${dayPlans.length} plan(es): ${dayPlans.map(plan => plan.name || "Plan").join(", ")}`
+                : "";
 
             daysHTML += `
-                <div class="mini-calendar-day
+                <div
+                    class="mini-calendar-day
                     ${isToday ? "today" : ""}
                     ${hasPlans ? "has-event" : ""}"
-                    title="${
-                        hasPlans
-                            ? `${planCount} plan(es)`
-                            : ""
-                    }">
+                    title="${escapeHTML(tooltip)}">
 
                     <span>${day}</span>
 
-                    ${
-                        hasPlans
-                            ? '<i class="mini-calendar-dot"></i>'
-                            : ""
-                    }
+                    ${hasPlans ? `
+                        <i class="mini-calendar-dot"></i>
+                    ` : ""}
 
                 </div>
             `;
         }
 
-        const daysWithPlans = Object.keys(plansByDate)
-            .filter(date => {
-                return date.startsWith(
-                    `${year}-${String(month + 1).padStart(2, "0")}`
-                );
-            }).length;
+        const daysWithPlans = Object.keys(plansByDate).filter(date => {
+            return date.startsWith(
+                `${year}-${String(month + 1).padStart(2, "0")}`
+            );
+        }).length;
 
         container.innerHTML = `
             <div class="mini-calendar">
 
                 <div class="mini-calendar-heading">
 
-                    <h4>${monthName}</h4>
+                    <h4>
+                        ${escapeHTML(monthName)}
+                    </h4>
 
                     <span>
-                        ${daysWithPlans} días con planes
+                        ${daysWithPlans}
+                        ${daysWithPlans === 1 ? "día con planes" : "días con planes"}
                     </span>
 
                 </div>
@@ -640,15 +795,83 @@
     }
 
     /* =====================================================
+       ACCIONES DEL DASHBOARD
+    ===================================================== */
+
+    function openPlanFromDashboard(planId) {
+        if (!planId) {
+            return;
+        }
+
+        if (
+            window.PLANEA_PLANS &&
+            typeof window.PLANEA_PLANS.openEditModal === "function"
+        ) {
+            window.PLANEA_PLANS.openEditModal(planId);
+            return;
+        }
+
+        if (window.PLANEA_ROUTER) {
+            window.PLANEA_ROUTER.navigateTo("plans");
+        }
+    }
+
+    function bindDashboardActions() {
+        if (eventsBound) {
+            return;
+        }
+
+        eventsBound = true;
+
+        document.addEventListener("click", event => {
+            const target = event.target;
+
+            if (!(target instanceof Element)) {
+                return;
+            }
+
+            const card = target.closest("[data-dashboard-plan-id]");
+
+            if (!card) {
+                return;
+            }
+
+            const planId = card.dataset.dashboardPlanId;
+
+            if (planId) {
+                openPlanFromDashboard(planId);
+            }
+        });
+
+        document.addEventListener("keydown", event => {
+            if (event.key !== "Enter" && event.key !== " ") {
+                return;
+            }
+
+            const target = event.target;
+
+            if (!(target instanceof Element)) {
+                return;
+            }
+
+            const card = target.closest("[data-dashboard-plan-id]");
+
+            if (!card) {
+                return;
+            }
+
+            event.preventDefault();
+
+            openPlanFromDashboard(card.dataset.dashboardPlanId);
+        });
+    }
+
+    /* =====================================================
        RENDER GENERAL
-       ===================================================== */
+    ===================================================== */
 
     function render() {
         if (!STORAGE()) {
-            console.warn(
-                "PLANEA: No se ha encontrado el sistema de almacenamiento."
-            );
-
             return;
         }
 
@@ -662,15 +885,24 @@
 
     /* =====================================================
        INICIALIZACIÓN
-       ===================================================== */
+    ===================================================== */
 
     function init() {
         if (initialized) {
-            render();
+            return;
+        }
+
+        if (!STORAGE()) {
+            console.warn(
+                "PLANEA DASHBOARD: No se encuentra PLANEA_STORAGE."
+            );
+
             return;
         }
 
         initialized = true;
+
+        bindDashboardActions();
 
         render();
 
@@ -691,7 +923,7 @@
 
     /* =====================================================
        API GLOBAL
-       ===================================================== */
+    ===================================================== */
 
     window.PLANEA_DASHBOARD = {
         init,

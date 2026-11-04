@@ -1,4 +1,3 @@
-
 /* =========================================================
    PLANEA - APLICACIÓN PRINCIPAL
    Inicialización y comunicación entre módulos.
@@ -89,7 +88,19 @@
 
                 await window.PLANEA_PARTICIPANTS.init();
 
-                // 11. Mostrar Dashboard inicialmente
+                // 11. Cargar módulo Presupuestos y gastos
+                await this.loadExpensesModule();
+
+                // 12. Inicializar módulo Presupuestos y gastos
+                if (!window.PLANEA_EXPENSES) {
+                    throw new Error(
+                        "El módulo Presupuestos y gastos no está disponible."
+                    );
+                }
+
+                await window.PLANEA_EXPENSES.init();
+
+                // 13. Mostrar Dashboard inicialmente
                 const profile = window.PLANEA_STORAGE.getProfile();
 
                 if (profile?.name) {
@@ -298,6 +309,69 @@
                     reject(
                         new Error(
                             "No se ha podido cargar assets/js/modules/participants.js. Comprueba la ruta del archivo."
+                        )
+                    );
+
+                };
+
+                document.body.appendChild(script);
+
+            });
+        },
+
+        /* =====================================================
+           CARGA DINÁMICA DEL MÓDULO PRESUPUESTOS Y GASTOS
+        ===================================================== */
+
+        loadExpensesModule() {
+
+            return new Promise((resolve, reject) => {
+
+                if (window.PLANEA_EXPENSES) {
+                    resolve();
+                    return;
+                }
+
+                const existingScript = document.querySelector(
+                    'script[data-planea-module="expenses"]'
+                );
+
+                if (existingScript) {
+                    existingScript.remove();
+                }
+
+                const script = document.createElement("script");
+
+                script.src = new URL(
+                    "assets/js/modules/expenses.js",
+                    document.baseURI
+                ).href;
+
+                script.dataset.planeaModule = "expenses";
+
+                script.onload = () => {
+
+                    if (!window.PLANEA_EXPENSES) {
+                        reject(
+                            new Error(
+                                "expenses.js se ha cargado, pero no ha registrado PLANEA_EXPENSES."
+                            )
+                        );
+                        return;
+                    }
+
+                    console.log(
+                        "PLANEA: módulo Presupuestos y gastos cargado correctamente."
+                    );
+
+                    resolve();
+                };
+
+                script.onerror = () => {
+
+                    reject(
+                        new Error(
+                            "No se ha podido cargar assets/js/modules/expenses.js. Comprueba la ruta del archivo."
                         )
                     );
 

@@ -1,4 +1,3 @@
-
 /* =========================================================
    PLANEA - ROUTER
    Archivo: assets/js/core/router.js
@@ -17,6 +16,7 @@
         "plans",
         "calendar",
         "participants",
+        "expenses",
         "generator",
         "favorites",
         "budget",
